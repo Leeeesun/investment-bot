@@ -10,9 +10,8 @@ from email.header import Header
 from email.utils import formataddr
 from datetime import datetime
 
-# --- 1. 基础工具函数 ---
+# --- 1. 基础工具逻辑 ---
 def calculate_rsi(prices, period=14):
-    """计算 RSI 相对强弱指数"""
     delta = prices.diff()
     gain = (delta.where(delta > 0, 0)).rolling(window=period).mean()
     loss = (-delta.where(delta < 0, 0)).rolling(window=period).mean()
@@ -21,130 +20,71 @@ def calculate_rsi(prices, period=14):
     return rsi.iloc[-1]
 
 def get_market_context():
-    """获取 VIX 恐慌指数与实时汇率"""
     context = {"VIX": 18, "rates": {"USD": 7.25, "JPY": 0.048, "EUR": 7.8, "HKD": 0.93, "CNY": 1.0}}
     try:
-        # 抓取 VIX
         vix_data = yf.download("^VIX", period="5d", progress=False)
         if not vix_data.empty:
-            v_val = vix_data['Close'].iloc[:, 0] if isinstance(vix_data['Close'], pd.DataFrame) else vix_data['Close']
-            context["VIX"] = float(v_val.dropna().iloc[-1])
+            v_close = vix_data['Close'].iloc[:, 0] if isinstance(vix_data['Close'], pd.DataFrame) else vix_data['Close']
+            context["VIX"] = float(v_close.dropna().iloc[-1])
         
-        # 抓取汇率
         tickers = {"USD": "USDCNY=X", "JPY": "JPYCNY=X", "EUR": "EURCNY=X", "HKD": "HKDCNY=X"}
         for curr, t in tickers.items():
             rate_data = yf.download(t, period="5d", progress=False)
             if not rate_data.empty:
-                r_val = rate_data['Close'].iloc[:, 0] if isinstance(rate_data['Close'], pd.DataFrame) else rate_data['Close']
-                context["rates"][curr] = float(r_val.dropna().iloc[-1])
+                r_close = rate_data['Close'].iloc[:, 0] if isinstance(rate_data['Close'], pd.DataFrame) else rate_data['Close']
+                context["rates"][curr] = float(r_close.dropna().iloc[-1])
     except: pass
     return context
 
-# --- 2. 核心计算引擎 (3.0 终极版) ---
-def calculate_ultimate_score(name, info, context):
-    try:
-        data = yf.download(info['ticker'], period="2y", progress=False)
-        if data.empty: return None
-        
-        close = data['Close'].iloc[:, 0] if isinstance(data['Close'], pd.DataFrame) else data['Close']
-        curr_p = float(close.iloc[-1])
-        
-        # A. 均线维度 (MA) - 基础仓位
-        ma = [close.rolling(w).mean().iloc[-1] for w in [20, 60, 120, 250]]
-        score_ma = 0.6
-        if curr_p < ma[0]: score_ma += 0.2
-        if curr_p < ma[1]: score_ma += 0.3
-        if curr_p < ma[2]: score_ma += 0.4
-        if curr_p < ma[3]: score_ma += 0.5
-        
-        # B. 动能维度 (Streak)
-        diff = close.diff()
-        streak = 0
-        for i in range(len(diff)-1, 0, -1):
-            if diff.iloc[i] < 0: streak -= 1
-            else: break
-        score_streak = 0.3 if streak <= -5 else (0.1 if streak <= -3 else (-0.1 if streak >= 3 else 0))
-        
-        # C. 力量维度 (RSI)
-        rsi_val = calculate_rsi(close)
-        score_rsi = 0
-        if rsi_val < 30: score_rsi = 0.3
-        elif rsi_val < 40: score_rsi = 0.1
-        elif rsi_val > 70: score_rsi = -0.3
-        elif rsi_val > 60: score_rsi = -0.1
-        
-        # D. 情绪维度 (VIX)
-        vix = context["VIX"]
-        score_vix = 0.5 if vix > 35 else (0.2 if vix > 25 else (-0.1 if vix < 15 else 0))
-        
-        # 综合计算倍数
-        final_multiplier = round(max(0.4, min(score_ma + score_streak + score_rsi + score_vix, 3.5)), 2)
-        rmb_amt = info['base_amount'] * final_multiplier * context['rates'].get(info['currency'], 1.0)
-        
-        return {
-            "name": name, "p": round(curr_p, 2), "m": final_multiplier, 
-            "rmb": round(rmb_amt, 2), "rsi": round(rsi_val, 1), "streak": streak
-        }
-    except: return None
-
-# --- 3. 视觉报告系统 ---
-def send_ultimate_report(total_rmb, results, context):
+# --- 2. 邮件发送逻辑 (专业投研风格) ---
+def send_alert_email(title, total_rmb, results, vix, alert_msg):
     mail_user = os.getenv('EMAIL_USER')
     mail_pass = os.getenv('EMAIL_PASS')
     receiver = os.getenv('EMAIL_RECEIVER')
     if not all([mail_user, mail_pass, receiver]): return
 
-    vix = context["VIX"]
     vix_color = "#e74c3c" if vix > 25 else "#27ae60"
-    
     rows = ""
     for r in results:
-        # RSI 状态提示
-        rsi_tag = "<span style='color:#e74c3c;'>超卖</span>" if r['rsi'] < 35 else ("<span style='color:#3498db;'>超买</span>" if r['rsi'] > 65 else "适中")
+        m_color = "#e74c3c" if r['m'] >= 1.3 else ("#3498db" if r['m'] <= 0.6 else "#2c3e50")
         rows += f"""
         <tr style="border-bottom: 1px solid #eee; font-size: 14px;">
-            <td style="padding: 12px;"><b>{r['name']}</b></td>
-            <td style="padding: 12px; text-align:center;">{r['p']}</td>
-            <td style="padding: 12px; text-align:center;">{r['rsi']} ({rsi_tag})</td>
-            <td style="padding: 12px; text-align:center; color:#e74c3c; font-weight:bold;">{r['m']}x</td>
-            <td style="padding: 12px; text-align:right; font-weight:bold;">¥{r['rmb']:,}</td>
+            <td style="padding:12px;"><b>{r['name']}</b></td>
+            <td style="padding:12px; text-align:center;">{r['p']}</td>
+            <td style="padding:12px; text-align:center;">{r['rsi']}</td>
+            <td style="padding:12px; text-align:center; color:{m_color}; font-weight:bold;">{r['m']}x</td>
+            <td style="padding:12px; text-align:right; font-weight:bold;">¥{r['rmb']:,}</td>
         </tr>
         """
 
     html = f"""
-    <div style="font-family:sans-serif; max-width:600px; margin:auto; border:1px solid #ddd; border-radius:12px; overflow:hidden; box-shadow:0 4px 15px rgba(0,0,0,0.1);">
-        <div style="background:#2c3e50; color:white; padding:25px;">
-            <h2 style="margin:0; font-size:22px; letter-spacing:1px;">全球资产量化定投报告 3.0</h2>
-            <div style="margin-top:10px; font-size:14px; opacity:0.9;">
-                市场恐慌指数 VIX: <b style="color:{vix_color};">{vix}</b> | 汇率 USD/CNY: {context['rates']['USD']:.2f}
-            </div>
+    <div style="font-family:sans-serif; max-width:600px; margin:auto; border:1px solid #ddd; border-radius:12px; overflow:hidden;">
+        <div style="background:#2c3e50; color:white; padding:20px;">
+            <h2 style="margin:0; font-size:20px;">{title}</h2>
+            <p style="margin:5px 0 0; opacity:0.8;">关键预警：{alert_msg} | VIX: <b style="color:{vix_color};">{vix}</b></p>
         </div>
-        <div style="padding:25px; background:#fff;">
-            <div style="background:#fff5f5; border-left:5px solid #e74c3c; padding:20px; margin-bottom:25px; border-radius:4px;">
-                <span style="font-size:14px; color:#95a5a6; text-transform:uppercase;">本期合计出资额 (RMB)</span><br>
-                <span style="font-size:32px; color:#e74c3c; font-weight:bold;">¥ {total_rmb:,.2f}</span>
+        <div style="padding:20px;">
+            <div style="background:#fff5f5; border-left:5px solid #e74c3c; padding:15px; margin-bottom:20px;">
+                <span style="font-size:13px; color:#7f8c8d;">当日建议投入总额 (RMB)</span><br>
+                <span style="font-size:28px; color:#e74c3c; font-weight:bold;">¥ {total_rmb:,.2f}</span>
             </div>
             <table width="100%" style="border-collapse:collapse;">
                 <tr style="background:#f8f9fa; color:#7f8c8d; font-size:12px;">
-                    <th style="padding:10px; text-align:left;">资产名称</th>
-                    <th style="padding:10px;">最新价格</th>
-                    <th style="padding:10px;">RSI力度</th>
-                    <th style="padding:10px;">综合倍数</th>
-                    <th style="padding:10px; text-align:right;">建议金额</th>
+                    <th style="padding:10px; text-align:left;">资产</th><th style="padding:10px;">现价</th>
+                    <th style="padding:10px;">RSI</th><th style="padding:10px;">倍数</th><th style="padding:10px; text-align:right;">金额</th>
                 </tr>
                 {rows}
             </table>
         </div>
-        <div style="background:#f9f9f9; padding:15px; text-align:center; font-size:12px; color:#bdc3c7;">
-            策略逻辑：MA趋势 + VIX情绪 + Streak动能 + RSI强弱 | {datetime.now().strftime('%Y-%m-%d %H:%M')}
+        <div style="background:#f9f9f9; padding:12px; text-align:center; font-size:11px; color:#bdc3c7;">
+            哨兵系统已根据今日行情（{datetime.now().strftime('%Y-%m-%d %H:%M')}）自动触发
         </div>
     </div>
     """
     
     msg = MIMEMultipart()
-    title = f"量化定投决策日报 - {datetime.now().strftime('%m/%d')}"
     msg['Subject'] = Header(title, 'utf-8')
-    msg['From'] = formataddr((str(Header('全球资产终端', 'utf-8')), mail_user))
+    msg['From'] = formataddr((str(Header('全球资产哨兵', 'utf-8')), mail_user))
     msg['To'] = receiver
     msg.attach(MIMEText(html, 'html', 'utf-8'))
     
@@ -152,31 +92,60 @@ def send_ultimate_report(total_rmb, results, context):
         with smtplib.SMTP_SSL("smtp.qq.com", 465, timeout=15) as smtp:
             smtp.login(mail_user, mail_pass)
             smtp.sendmail(mail_user, [receiver], msg.as_string())
-        print("✉️ 终极版报告已送达。")
-    except Exception as e: print(f"❌ 邮件发送异常: {e}")
+        print("✉️ 预警邮件已发送")
+    except Exception as e: print(f"邮件失败: {e}")
 
-# --- 4. 运行入口 ---
+# --- 3. 哨兵核心逻辑 ---
 def main():
-    if not os.path.exists("assets.json"): return
     with open("assets.json", 'r', encoding='utf-8') as f:
         assets = json.load(f)
     
-    context = get_market_context()
-    final_results, total_all = [], 0
+    ctx = get_market_context()
+    results, total_rmb, alert_assets = [], 0, []
     
     for name, info in assets.items():
-        res = calculate_ultimate_score(name, info, context)
-        if res:
-            final_results.append(res)
-            total_all += res['rmb']
+        try:
+            data = yf.download(info['ticker'], period="2y", progress=False)
+            close = data['Close'].iloc[:, 0] if isinstance(data['Close'], pd.DataFrame) else data['Close']
+            curr_p = float(close.iloc[-1])
             
-    if final_results:
-        send_ultimate_report(total_all, final_results, context)
-        # 存档 CSV
-        df = pd.DataFrame(final_results)
-        df['日期'] = datetime.now().strftime("%Y-%m-%d")
+            # 模型评分
+            ma = [close.rolling(w).mean().iloc[-1] for w in [20, 60, 120, 250]]
+            m = 0.6
+            if curr_p < ma[0]: m += 0.2
+            if curr_p < ma[1]: m += 0.3
+            if curr_p < ma[2]: m += 0.4
+            if curr_p < ma[3]: m += 0.5
+            
+            rsi = calculate_rsi(close)
+            if rsi < 35: m += 0.3
+            if rsi > 65: m -= 0.3
+            if ctx['VIX'] > 25: m += 0.2
+            
+            m = round(max(0.4, min(m, 3.5)), 2)
+            rmb = round(info['base_amount'] * m * ctx['rates'].get(info['currency'], 1.0), 2)
+            
+            item = {"name": name, "p": round(curr_p, 2), "rsi": round(rsi, 1), "m": m, "rmb": rmb}
+            results.append(item)
+            total_rmb += rmb
+            
+            # 【哨兵触发阈值】
+            if m >= 1.3 or rsi <= 35: alert_assets.append(f"{name}(买入信号)")
+            if m <= 0.6 or rsi >= 65: alert_assets.append(f"{name}(高位避险)")
+        except: continue
+
+    if results:
+        # 1. 记录数据 (无论是否有信号)
+        df = pd.DataFrame(results); df['日期'] = datetime.now().strftime("%Y-%m-%d")
         log = "global_investment_log.csv"
         df.to_csv(log, mode='a', index=False, header=not os.path.exists(log), encoding='utf-8-sig')
+        
+        # 2. 信号过滤：只有触发特定信号才发邮件
+        if alert_assets:
+            msg = "、".join(alert_assets)
+            send_alert_email(f"交易信号预警：{msg}", total_rmb, results, round(ctx['VIX'], 1), msg)
+        else:
+            print("😴 今日行情平稳，哨兵继续值守，未发送邮件。")
 
 if __name__ == "__main__":
     main()

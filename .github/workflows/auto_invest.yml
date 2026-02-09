@@ -2,7 +2,7 @@ name: Global Invest Bot
 
 on:
   schedule:
-    - cron: '0 2 * * 1,5'
+    - cron: '0 2 * * *' # 每天北京时间 10:00 运行
   workflow_dispatch:
 
 jobs:
@@ -10,31 +10,25 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       contents: write
-      
     steps:
       - name: Checkout Code
         uses: actions/checkout@v4
-
       - name: Setup Python
         uses: actions/setup-python@v4
         with:
           python-version: '3.9'
-
       - name: Install Dependencies
-        run: pip install -r requirements.txt
-
+        run: pip install yfinance pandas requests
       - name: Execute Script
         env:
           EMAIL_USER: ${{ secrets.EMAIL_USER }}
-          EMAIL_PASS: ${{ secrets.EMAIL_PASS }}
+          EMAIL_PASS: ${{ secrets.EMAIL_PASS >>
           EMAIL_RECEIVER: ${{ secrets.EMAIL_RECEIVER }}
-          WEBHOOK_URL: ${{ secrets.WEBHOOK_URL }}
         run: python main.py
-
       - name: Auto Commit
         uses: stefanzweifel/git-auto-commit-action@v5
         with:
-          commit_message: "Update log: ${{ github.event.head_commit.timestamp }}"
+          commit_message: "Daily check: ${{ github.event.head_commit.timestamp }}"
           file_pattern: 'global_investment_log.csv'
-          commit_user_name: "LiangQinqin-Bot"
+          commit_user_name: "Asset-Sentinel-Bot"
           commit_user_email: "actions@github.com"
