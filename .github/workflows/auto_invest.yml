@@ -1,0 +1,36 @@
+name: Global Invest Bot
+
+on:
+  schedule:
+    - cron: '0 2 * * 1,5' # 北京时间周一、周五上午 10:00
+  workflow_dispatch:
+
+jobs:
+  run_bot:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v3
+      - name: Setup Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.9'
+      - name: Install Dependencies
+        run: pip install -r requirements.txt
+      - name: Execute Script
+        env:
+          EMAIL_USER: ${{ secrets.EMAIL_USER }}
+          EMAIL_PASS: ${{ secrets.EMAIL_PASS }}
+          EMAIL_RECEIVER: ${{ secrets.EMAIL_RECEIVER }}
+          WEBHOOK_URL: ${{ secrets.WEBHOOK_URL }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: python main.py
+      - name: Commit Changes
+        run: |
+          git config --global user.name "ActionBot"
+          git config --global user.email "bot@github.com"
+          git add global_investment_log.csv
+          git commit -m "Update: $(date +'%Y-%m-%d')" || exit 0
+          git push

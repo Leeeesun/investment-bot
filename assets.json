@@ -1,0 +1,8 @@
+{
+    "标普500":   {"ticker": "^GSPC",  "base_amount": 1000, "currency": "USD"},
+    "纳斯达克":   {"ticker": "^IXIC",  "base_amount": 1000, "currency": "USD"},
+    "日经225":   {"ticker": "^N225",  "base_amount": 500,  "currency": "JPY"},
+    "德国DAX":   {"ticker": "^GDAXI", "base_amount": 500,  "currency": "EUR"},
+    "恒生指数":   {"ticker": "^HSI",   "base_amount": 750,  "currency": "HKD"},
+    "COMEX黄金": {"ticker": "GC=F",    "base_amount": 500,  "currency": "USD"}
+}
