@@ -26,7 +26,6 @@ def get_market_context():
         if not vix_data.empty:
             v_close = vix_data['Close'].iloc[:, 0] if isinstance(vix_data['Close'], pd.DataFrame) else vix_data['Close']
             context["VIX"] = float(v_close.dropna().iloc[-1])
-        
         tickers = {"USD": "USDCNY=X", "JPY": "JPYCNY=X", "EUR": "EURCNY=X", "HKD": "HKDCNY=X"}
         for curr, t in tickers.items():
             rate_data = yf.download(t, period="5d", progress=False)
@@ -36,14 +35,17 @@ def get_market_context():
     except: pass
     return context
 
-# --- 2. 邮件发送逻辑 (专业投研风格) ---
-def send_alert_email(title, total_rmb, results, vix, alert_msg):
+# --- 2. 视觉报告系统 (排版优化版) ---
+def send_alert_email(title, total_rmb, results, vix, alert_list):
     mail_user = os.getenv('EMAIL_USER')
     mail_pass = os.getenv('EMAIL_PASS')
     receiver = os.getenv('EMAIL_RECEIVER')
     if not all([mail_user, mail_pass, receiver]): return
 
     vix_color = "#e74c3c" if vix > 25 else "#27ae60"
+    vix_desc = "市场恐慌" if vix > 25 else "情绪平稳"
+    
+    # 构造表格行
     rows = ""
     for r in results:
         m_color = "#e74c3c" if r['m'] >= 1.3 else ("#3498db" if r['m'] <= 0.6 else "#2c3e50")
@@ -56,35 +58,53 @@ def send_alert_email(title, total_rmb, results, vix, alert_msg):
             <td style="padding:12px; text-align:right; font-weight:bold;">¥{r['rmb']:,}</td>
         </tr>
         """
+    
+    # 构造预警建议（放到底部）
+    alert_html = "".join([f"<li style='margin-bottom:5px;'>{a}</li>" for a in alert_list])
 
     html = f"""
-    <div style="font-family:sans-serif; max-width:600px; margin:auto; border:1px solid #ddd; border-radius:12px; overflow:hidden;">
-        <div style="background:#2c3e50; color:white; padding:20px;">
-            <h2 style="margin:0; font-size:20px;">{title}</h2>
-            <p style="margin:5px 0 0; opacity:0.8;">关键预警：{alert_msg} | VIX: <b style="color:{vix_color};">{vix}</b></p>
+    <div style="font-family:sans-serif; max-width:600px; margin:auto; border:1px solid #ddd; border-radius:12px; overflow:hidden; box-shadow:0 4px 12px rgba(0,0,0,0.1);">
+        <div style="background:#2c3e50; color:white; padding:25px;">
+            <h2 style="margin:0; font-size:22px; letter-spacing:1px;">全球资产量化监测日报</h2>
+            <p style="margin:8px 0 0; opacity:0.8; font-size:14px;">
+                恐慌指数 VIX: <b style="color:{vix_color};">{vix} ({vix_desc})</b> | 汇率 USD/CNY: {os.getenv('USD_RATE','7.25')}
+            </p>
         </div>
-        <div style="padding:20px;">
-            <div style="background:#fff5f5; border-left:5px solid #e74c3c; padding:15px; margin-bottom:20px;">
-                <span style="font-size:13px; color:#7f8c8d;">当日建议投入总额 (RMB)</span><br>
-                <span style="font-size:28px; color:#e74c3c; font-weight:bold;">¥ {total_rmb:,.2f}</span>
-            </div>
-            <table width="100%" style="border-collapse:collapse;">
+        
+        <div style="padding:25px; background:#fff;">
+            <table width="100%" style="border-collapse:collapse; margin-bottom:25px;">
                 <tr style="background:#f8f9fa; color:#7f8c8d; font-size:12px;">
-                    <th style="padding:10px; text-align:left;">资产</th><th style="padding:10px;">现价</th>
-                    <th style="padding:10px;">RSI</th><th style="padding:10px;">倍数</th><th style="padding:10px; text-align:right;">金额</th>
+                    <th style="padding:10px; text-align:left;">资产名称</th>
+                    <th style="padding:10px;">最新价格</th>
+                    <th style="padding:10px;">热度(RSI)</th>
+                    <th style="padding:10px;">建议倍数</th>
+                    <th style="padding:10px; text-align:right;">建议金额</th>
                 </tr>
                 {rows}
             </table>
+
+            <div style="background:#fdf2f2; border-radius:8px; padding:20px; margin-bottom:25px; text-align:center;">
+                <span style="font-size:14px; color:#666;">今日预计总投入 (RMB)</span><br>
+                <span style="font-size:32px; color:#e74c3c; font-weight:bold;">¥ {total_rmb:,.2f}</span>
+            </div>
+
+            <div style="border-top:2px dashed #eee; padding-top:20px;">
+                <h4 style="margin:0 0 10px 0; color:#2c3e50;">💡 哨兵决策建议：</h4>
+                <ul style="margin:0; padding-left:20px; color:#e74c3c; font-size:15px; line-height:1.6; font-weight:bold;">
+                    {alert_html}
+                </ul>
+            </div>
         </div>
-        <div style="background:#f9f9f9; padding:12px; text-align:center; font-size:11px; color:#bdc3c7;">
-            哨兵系统已根据今日行情（{datetime.now().strftime('%Y-%m-%d %H:%M')}）自动触发
+
+        <div style="background:#f9f9f9; padding:15px; text-align:center; font-size:12px; color:#bdc3c7;">
+            策略：均线趋势 + 情绪监控 | 生成时间：{datetime.now().strftime('%Y-%m-%d %H:%M')}
         </div>
     </div>
     """
     
     msg = MIMEMultipart()
     msg['Subject'] = Header(title, 'utf-8')
-    msg['From'] = formataddr((str(Header('全球资产哨兵', 'utf-8')), mail_user))
+    msg['From'] = formataddr((str(Header('资产哨兵系统', 'utf-8')), mail_user))
     msg['To'] = receiver
     msg.attach(MIMEText(html, 'html', 'utf-8'))
     
@@ -92,16 +112,18 @@ def send_alert_email(title, total_rmb, results, vix, alert_msg):
         with smtplib.SMTP_SSL("smtp.qq.com", 465, timeout=15) as smtp:
             smtp.login(mail_user, mail_pass)
             smtp.sendmail(mail_user, [receiver], msg.as_string())
-        print("✉️ 预警邮件已发送")
-    except Exception as e: print(f"邮件失败: {e}")
+        print("✉️ 优化版报告已送达")
+    except Exception as e: print(f"发送失败: {e}")
 
-# --- 3. 哨兵核心逻辑 ---
+# --- 3. 运行逻辑 ---
 def main():
+    if not os.path.exists("assets.json"): return
     with open("assets.json", 'r', encoding='utf-8') as f:
         assets = json.load(f)
     
     ctx = get_market_context()
-    results, total_rmb, alert_assets = [], 0, []
+    os.environ['USD_RATE'] = str(round(ctx['rates']['USD'], 2))
+    results, total_rmb, alert_list = [], 0, []
     
     for name, info in assets.items():
         try:
@@ -109,7 +131,7 @@ def main():
             close = data['Close'].iloc[:, 0] if isinstance(data['Close'], pd.DataFrame) else data['Close']
             curr_p = float(close.iloc[-1])
             
-            # 模型评分
+            # 计算评分
             ma = [close.rolling(w).mean().iloc[-1] for w in [20, 60, 120, 250]]
             m = 0.6
             if curr_p < ma[0]: m += 0.2
@@ -125,27 +147,25 @@ def main():
             m = round(max(0.4, min(m, 3.5)), 2)
             rmb = round(info['base_amount'] * m * ctx['rates'].get(info['currency'], 1.0), 2)
             
-            item = {"name": name, "p": round(curr_p, 2), "rsi": round(rsi, 1), "m": m, "rmb": rmb}
-            results.append(item)
+            results.append({"name": name, "p": round(curr_p, 2), "rsi": round(rsi, 1), "m": m, "rmb": rmb})
             total_rmb += rmb
             
-            # 【哨兵触发阈值】
-            if m >= 1.3 or rsi <= 35: alert_assets.append(f"{name}(买入信号)")
-            if m <= 0.6 or rsi >= 65: alert_assets.append(f"{name}(高位避险)")
+            # 信号翻译：改写为更直白的语言
+            if m >= 1.3 or rsi <= 35:
+                alert_list.append(f"🔥 {name}：目前处于‘超跌’区间，建议加大定投力度。")
+            if m <= 0.6 or rsi >= 65:
+                alert_list.append(f"⚠️ {name}：目前热度过高，建议缩减资金或观望。")
         except: continue
 
     if results:
-        # 1. 记录数据 (无论是否有信号)
         df = pd.DataFrame(results); df['日期'] = datetime.now().strftime("%Y-%m-%d")
-        log = "global_investment_log.csv"
-        df.to_csv(log, mode='a', index=False, header=not os.path.exists(log), encoding='utf-8-sig')
+        df.to_csv("global_investment_log.csv", mode='a', index=False, header=not os.path.exists("global_investment_log.csv"), encoding='utf-8-sig')
         
-        # 2. 信号过滤：只有触发特定信号才发邮件
-        if alert_assets:
-            msg = "、".join(alert_assets)
-            send_alert_email(f"交易信号预警：{msg}", total_rmb, results, round(ctx['VIX'], 1), msg)
+        # 只要有信号，就发送优化排版后的邮件
+        if alert_list:
+            send_alert_email(f"定投预警：发现 {len(alert_list)} 个重要信号", total_rmb, results, round(ctx['VIX'], 1), alert_list)
         else:
-            print("😴 今日行情平稳，哨兵继续值守，未发送邮件。")
+            print("行情平稳，无须报警。")
 
 if __name__ == "__main__":
     main()
