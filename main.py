@@ -130,7 +130,7 @@ def send_google_style_report(title, total_rmb, results, vix, alert_list):
     
     msg = MIMEMultipart()
     msg['Subject'] = Header(title, 'utf-8')
-    msg['From'] = formataddr((str(Header('Google Finance Sentinel', 'utf-8')), mail_user))
+    msg['From'] = formataddr((str(Header('Google Financee Sentinel', 'utf-8')), mail_user))
     msg['To'] = receiver
     msg.attach(MIMEText(html_body, 'html', 'utf-8'))
     
@@ -138,7 +138,7 @@ def send_google_style_report(title, total_rmb, results, vix, alert_list):
         with smtplib.SMTP_SSL("smtp.qq.com", 465, timeout=15) as smtp:
             smtp.login(mail_user, mail_pass)
             smtp.sendmail(mail_user, [receiver], msg.as_string())
-        print("✉️ Google Finance 风格简报已发送。")
+        print("✉️ 简报已发送。")
     except Exception as e: print(f"发送异常: {e}")
 
 # --- 3. 运行逻辑 ---
@@ -183,7 +183,7 @@ def main():
         df = pd.DataFrame(results); df['日期'] = datetime.now().strftime("%Y-%m-%d")
         df.to_csv("global_investment_log.csv", mode='a', index=False, header=not os.path.exists("global_investment_log.csv"), encoding='utf-8-sig')
         if alert_list:
-            send_google_style_report(f"市场简报: {datetime.now().strftime('%m月%d日')} 投资组合动态", total_rmb, results, round(ctx['VIX'], 1), alert_list)
+            send_google_style_report(f"投资简报: {datetime.now().strftime('%m月%d日')} 投资组合动态", total_rmb, results, round(ctx['VIX'], 1), alert_list)
 
 if __name__ == "__main__":
     main()
