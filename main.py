@@ -10,9 +10,8 @@ from email.header import Header
 from email.utils import formataddr
 from datetime import datetime
 
-# --- 1. 量化工具函数 ---
+# --- 1. 定投模型引擎 (保持人民币基准) ---
 def calculate_rsi(prices, period=14):
-    """计算 RSI 热度指数"""
     delta = prices.diff()
     gain = (delta.where(delta > 0, 0)).rolling(window=period).mean()
     loss = (-delta.where(delta < 0, 0)).rolling(window=period).mean()
@@ -21,16 +20,12 @@ def calculate_rsi(prices, period=14):
     return rsi.iloc[-1]
 
 def get_market_context():
-    """获取全局市场背景：VIX 与 汇率参考"""
-    context = {"VIX": 18, "rates": {"USD": 7.25, "CNY": 1.0}}
+    context = {"VIX": 18, "rates": {"USD": 7.25}}
     try:
-        # 抓取 VIX 恐慌指数
         vix_data = yf.download("^VIX", period="5d", progress=False)
         if not vix_data.empty:
             v_close = vix_data['Close'].iloc[:, 0] if isinstance(vix_data['Close'], pd.DataFrame) else vix_data['Close']
             context["VIX"] = float(v_close.dropna().iloc[-1])
-        
-        # 抓取汇率（仅作参考显示用）
         rate_data = yf.download("USDCNY=X", period="5d", progress=False)
         if not rate_data.empty:
             r_close = rate_data['Close'].iloc[:, 0] if isinstance(rate_data['Close'], pd.DataFrame) else rate_data['Close']
@@ -38,109 +33,143 @@ def get_market_context():
     except: pass
     return context
 
-# --- 2. 视觉报告系统 (结构优化版) ---
-def send_report(title, total_rmb, results, vix, alert_list):
+# --- 2. 奢华视觉报告系统 (Black Gold Edition) ---
+def send_luxury_report(title, total_rmb, results, vix, alert_list):
     mail_user = os.getenv('EMAIL_USER')
     mail_pass = os.getenv('EMAIL_PASS')
     receiver = os.getenv('EMAIL_RECEIVER')
     if not all([mail_user, mail_pass, receiver]): return
 
-    vix_color = "#e74c3c" if vix > 25 else "#27ae60"
-    vix_desc = "市场较恐慌" if vix > 25 else "情绪较平稳"
-    
-    # 构造表格行
+    # 构造表格行 - 奢华质感
     rows_html = ""
     for r in results:
-        m_color = "#e74c3c" if r['m'] >= 1.3 else ("#3498db" if r['m'] <= 0.6 else "#2c3e50")
+        # 倍数颜色：高加仓用玫瑰金感，减仓用高级灰
+        m_style = "color: #C5A059; font-weight: bold;" if r['m'] >= 1.3 else ("color: #8E8E93;" if r['m'] <= 0.6 else "color: #333;")
         rows_html += f"""
-        <tr style="border-bottom: 1px solid #eee; font-size: 14px;">
-            <td style="padding:12px;"><b>{r['name']}</b></td>
-            <td style="padding:12px; text-align:center;">{r['p']}</td>
-            <td style="padding:12px; text-align:center;">{r['rsi']}</td>
-            <td style="padding:12px; text-align:center; color:{m_color}; font-weight:bold;">{r['m']}x</td>
-            <td style="padding:12px; text-align:right; font-weight:bold;">¥{r['rmb']:,}</td>
+        <tr style="border-bottom: 1px solid #F0F0F0;">
+            <td style="padding: 18px 10px; color: #1C1C1E; font-family: 'PingFang SC', sans-serif;">{r['name']}</td>
+            <td style="padding: 18px 10px; text-align: center; color: #636366;">{r['p']}</td>
+            <td style="padding: 18px 10px; text-align: center; color: #636366;">{r['rsi']}</td>
+            <td style="padding: 18px 10px; text-align: center; {m_style}">{r['m']}x</td>
+            <td style="padding: 18px 10px; text-align: right; color: #000000; font-weight: 600; font-size: 15px;">¥{r['rmb']:,}</td>
         </tr>
         """
     
-    alert_items = "".join([f"<li style='margin-bottom:8px;'>{a}</li>" for a in alert_list])
+    alert_html = "".join([f"<li style='margin-bottom:12px; border-left: 2px solid #C5A059; padding-left: 15px;'>{a}</li>" for a in alert_list])
 
-    html_body = f"""
-    <div style="font-family:'Microsoft YaHei',sans-serif; max-width:600px; margin:auto; border:1px solid #ddd; border-radius:12px; overflow:hidden; box-shadow:0 4px 15px rgba(0,0,0,0.1);">
-        <div style="background:#2c3e50; color:white; padding:25px;">
-            <h2 style="margin:0; font-size:20px; letter-spacing:1px;">全球资产监测分析报告</h2>
-            <p style="margin:8px 0 0; opacity:0.8; font-size:13px;">
-                恐慌指数 VIX: <b style="color:{vix_color};">{vix} ({vix_desc})</b> | 美元汇率参考: {os.getenv('USD_REF','7.25')}
-            </p>
-        </div>
-        
-        <div style="padding:25px; background:#fff;">
-            <table width="100%" style="border-collapse:collapse; margin-bottom:25px;">
-                <tr style="background:#f8f9fa; color:#7f8c8d; font-size:12px;">
-                    <th style="padding:10px; text-align:left;">资产名称</th>
-                    <th style="padding:10px;">最新价格</th>
-                    <th style="padding:10px;">热度(RSI)</th>
-                    <th style="padding:10px;">建议倍数</th>
-                    <th style="padding:10px; text-align:right;">建议金额</th>
-                </tr>
-                {rows_html}
-            </table>
+    html_content = f"""
+    <html>
+    <body style="margin: 0; padding: 0; background-color: #F4F4F4; font-family: 'Times New Roman', 'PingFang SC', serif;">
+        <table width="100%" border="0" cellspacing="0" cellpadding="0">
+            <tr>
+                <td align="center" style="padding: 50px 0;">
+                    <table width="640" border="0" cellspacing="0" cellpadding="0" style="background-color: #FFFFFF; box-shadow: 0 20px 40px rgba(0,0,0,0.08);">
+                        <tr>
+                            <td style="background-color: #0F172A; padding: 45px 50px; border-bottom: 4px solid #C5A059;">
+                                <table width="100%" border="0" cellspacing="0" cellpadding="0">
+                                    <tr>
+                                        <td>
+                                            <h2 style="color: #C5A059; margin: 0; font-size: 12px; text-transform: uppercase; letter-spacing: 4px; font-weight: 400;">Private Intelligence</h2>
+                                            <h1 style="color: #FFFFFF; margin: 5px 0 0 0; font-size: 26px; font-weight: 500; letter-spacing: 1px;">全球资产策略简报</h1>
+                                        </td>
+                                        <td align="right" style="color: #C5A059; font-size: 14px; letter-spacing: 1px;">
+                                            {datetime.now().strftime('%Y / %m / %d')}
+                                        </td>
+                                    </tr>
+                                </table>
+                            </td>
+                        </tr>
+                        
+                        <tr>
+                            <td style="padding: 40px 50px 20px 50px;">
+                                <table width="100%" border="0" cellspacing="0" cellpadding="0">
+                                    <tr>
+                                        <td width="50%" style="border-right: 1px solid #EEEEEE;">
+                                            <p style="color: #8E8E93; font-size: 11px; margin: 0; text-transform: uppercase;">市场恐慌指数 / VIX</p>
+                                            <p style="color: #1C1C1E; font-size: 24px; margin: 5px 0 0 0; font-weight: 300;">{vix}</p>
+                                        </td>
+                                        <td width="50%" style="padding-left: 30px;">
+                                            <p style="color: #8E8E93; font-size: 11px; margin: 0; text-transform: uppercase;">今日执行预算 / Total</p>
+                                            <p style="color: #C5A059; font-size: 24px; margin: 5px 0 0 0; font-weight: 500;">¥ {total_rmb:,.2f}</p>
+                                        </td>
+                                    </tr>
+                                </table>
+                            </td>
+                        </tr>
 
-            <div style="background:#fdf2f2; border-radius:8px; padding:20px; margin-bottom:25px; text-align:center; border: 1px solid #f5c6cb;">
-                <span style="font-size:14px; color:#666;">今日建议出资总额 (RMB)</span><br>
-                <span style="font-size:32px; color:#e74c3c; font-weight:bold;">¥ {total_rmb:,.2f}</span>
-            </div>
+                        <tr>
+                            <td style="padding: 20px 50px 40px 50px;">
+                                <table width="100%" border="0" cellspacing="0" cellpadding="0" style="font-size: 14px; border-collapse: collapse;">
+                                    <thead>
+                                        <tr style="border-bottom: 1px solid #000000;">
+                                            <th align="left" style="padding: 15px 10px; color: #1C1C1E; font-weight: 600; text-transform: uppercase; font-size: 11px; letter-spacing: 1px;">Assets</th>
+                                            <th align="center" style="padding: 15px 10px; color: #1C1C1E; font-weight: 600; text-transform: uppercase; font-size: 11px;">Price</th>
+                                            <th align="center" style="padding: 15px 10px; color: #1C1C1E; font-weight: 600; text-transform: uppercase; font-size: 11px;">RSI</th>
+                                            <th align="center" style="padding: 15px 10px; color: #1C1C1E; font-weight: 600; text-transform: uppercase; font-size: 11px;">Mult.</th>
+                                            <th align="right" style="padding: 15px 10px; color: #1C1C1E; font-weight: 600; text-transform: uppercase; font-size: 11px;">Amount</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        {rows_html}
+                                    </tbody>
+                                </table>
+                            </td>
+                        </tr>
 
-            <div style="border-top:2px dashed #eee; padding-top:20px;">
-                <h4 style="margin:0 0 12px 0; color:#2c3e50; font-size:16px;">💡 哨兵决策建议：</h4>
-                <ul style="margin:0; padding-left:20px; color:#2c3e50; font-size:15px; line-height:1.6;">
-                    {alert_items}
-                    <li style="margin-top:15px; color:#7f8c8d; list-style:none; font-size:13px; border-top:1px solid #f5f5f5; padding-top:10px;">
-                        <b>⚠️ 场内特别提醒：</b><br>
-                        1. 买入前请看一眼 <b>溢价率</b>，若 >1.5% 建议分批或暂缓。<br>
-                        2. 建议金额已根据您设定的 <b>人民币基数</b> 动态计算。
-                    </li>
-                </ul>
-            </div>
-        </div>
-        <div style="background:#f9f9f9; padding:15px; text-align:center; font-size:11px; color:#bdc3c7;">
-            策略：MA趋势+VIX情绪+RSI强弱 | 生成时间：{datetime.now().strftime('%Y-%m-%d %H:%M')}
-        </div>
-    </div>
+                        <tr>
+                            <td style="padding: 0 50px 50px 50px;">
+                                <div style="background-color: #FBFBFB; padding: 30px; border-radius: 2px;">
+                                    <h3 style="margin: 0 0 20px 0; color: #1C1C1E; font-size: 16px; font-weight: 500; border-bottom: 1px solid #C5A059; display: inline-block; padding-bottom: 5px;">战略执行建议</h3>
+                                    <ul style="margin: 0; padding: 0; list-style: none; color: #3A3A3C; font-size: 14px; line-height: 2;">
+                                        {alert_html}
+                                    </ul>
+                                </div>
+                            </td>
+                        </tr>
+
+                        <tr>
+                            <td style="background-color: #FFFFFF; padding: 30px 50px; text-align: center; border-top: 1px solid #F4F4F4;">
+                                <p style="color: #AEAEB2; font-size: 10px; margin: 0; letter-spacing: 2px; text-transform: uppercase;">
+                                    Confidential Strategic Intelligence · Automated Generation
+                                </p>
+                            </td>
+                        </tr>
+                    </table>
+                </td>
+            </tr>
+        </table>
+    </body>
+    </html>
     """
     
     msg = MIMEMultipart()
     msg['Subject'] = Header(title, 'utf-8')
-    msg['From'] = formataddr((str(Header('资产管理哨兵', 'utf-8')), mail_user))
+    msg['From'] = formataddr((str(Header('Sentinel Intelligence Pro', 'utf-8')), mail_user))
     msg['To'] = receiver
-    msg.attach(MIMEText(html_body, 'html', 'utf-8'))
+    msg.attach(MIMEText(html_content, 'html', 'utf-8'))
     
     try:
         with smtplib.SMTP_SSL("smtp.qq.com", 465, timeout=15) as smtp:
             smtp.login(mail_user, mail_pass)
             smtp.sendmail(mail_user, [receiver], msg.as_string())
-        print("✉️ 报告已成功投递。")
-    except Exception as e:
-        print(f"发送异常: {e}")
+        print("✉️ 尊享版策略简报已送达。")
+    except Exception as e: print(f"发送异常: {e}")
 
-# --- 3. 哨兵运行引擎 ---
+# --- 3. 运行逻辑 ---
 def main():
     if not os.path.exists("assets.json"): return
     with open("assets.json", 'r', encoding='utf-8') as f:
         assets = json.load(f)
     
     ctx = get_market_context()
-    os.environ['USD_REF'] = str(round(ctx['rates']['USD'], 2))
     results, total_rmb, alert_list = [], 0, []
     
     for name, info in assets.items():
         try:
             data = yf.download(info['ticker'], period="2y", progress=False)
             if data.empty: continue
-            
             close = data['Close'].iloc[:, 0] if isinstance(data['Close'], pd.DataFrame) else data['Close']
             curr_p = float(close.iloc[-1])
-            
-            # A. 均线维度评分
             ma = [close.rolling(w).mean().iloc[-1] for w in [20, 60, 120, 250]]
             m = 0.6
             if curr_p < ma[0]: m += 0.2
@@ -148,42 +177,30 @@ def main():
             if curr_p < ma[2]: m += 0.4
             if curr_p < ma[3]: m += 0.5
             
-            # B. RSI 维度评分
             rsi_val = round(calculate_rsi(close), 1)
             if rsi_val < 35: m += 0.3
             if rsi_val > 65: m -= 0.3
-            
-            # C. VIX 维度评分
             if ctx['VIX'] > 25: m += 0.2
             
-            # 最终倍数锁定
             m = round(max(0.4, min(m, 3.5)), 2)
-            
-            # --- 核心逻辑改动：直接认为 base_amount 是人民币 ---
             rmb_amt = round(info['base_amount'] * m, 2)
-            
-            item = {"name": name, "p": round(curr_p, 2), "rsi": rsi_val, "m": m, "rmb": rmb_amt}
-            results.append(item)
+            results.append({"name": name, "p": round(curr_p, 2), "rsi": rsi_val, "m": m, "rmb": rmb_amt})
             total_rmb += rmb_amt
             
-            # 决策语言翻译
             if m >= 1.3 or rsi_val <= 35:
-                alert_list.append(f"<b style='color:#e74c3c;'>🔥 {name}：</b>目前处于“低位捡便宜”区间，建议增加出资。")
+                alert_list.append(f"<b>{name}</b> 现处于战略级低估区间，建议启动强化配置计划。")
             elif m <= 0.6 or rsi_val >= 65:
-                alert_list.append(f"<b style='color:#3498db;'>⚠️ {name}：</b>目前涨势过猛，建议“歇一歇”减少出资。")
+                alert_list.append(f"<b>{name}</b> 市场热度已达峰值，建议执行风险规避，暂缓投入。")
         except: continue
 
     if results:
-        # 存档数据
+        # 记录数据
         df = pd.DataFrame(results); df['日期'] = datetime.now().strftime("%Y-%m-%d")
-        log_file = "global_investment_log.csv"
-        df.to_csv(log_file, mode='a', index=False, header=not os.path.exists(log_file), encoding='utf-8-sig')
+        df.to_csv("global_investment_log.csv", mode='a', index=False, header=not os.path.exists("global_investment_log.csv"), encoding='utf-8-sig')
         
-        # 哨兵触发：仅在有显著信号时发邮件
+        # 触发预警
         if alert_list:
-            send_report(f"交易信号预警：今日发现 {len(alert_list)} 个重要信号", total_rmb, results, round(ctx['VIX'], 1), alert_list)
-        else:
-            print("行情平稳，哨兵静默中。")
+            send_luxury_report(f"Strategic Intelligence: {datetime.now().strftime('%m / %d')} 资产研判", total_rmb, results, round(ctx['VIX'], 1), alert_list)
 
 if __name__ == "__main__":
     main()
