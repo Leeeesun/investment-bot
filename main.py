@@ -6,60 +6,62 @@ import smtplib
 import requests
 from email.mime.text import MIMEText
 from email.mime.multipart import MIMEMultipart
+from email.header import Header
+from email.utils import formataddr
 from datetime import datetime
 
-# --- 1. 获取汇率逻辑 ---
 def get_exchange_rates():
+    rates = {"CNY": 1.0, "USD": 7.25, "JPY": 0.048, "EUR": 7.8, "HKD": 0.93}
     tickers = {"USD": "USDCNY=X", "JPY": "JPYCNY=X", "EUR": "EURCNY=X", "HKD": "HKDCNY=X"}
-    rates = {"CNY": 1.0}
-    try:
-        data = yf.download(list(tickers.values()), period="5d", progress=False)['Close']
-        for curr, ticker in tickers.items():
-            rates[curr] = float(data[ticker].dropna().iloc[-1])
-    except:
-        rates.update({"USD": 7.25, "JPY": 0.048, "EUR": 7.8, "HKD": 0.93})
+    for curr, ticker in tickers.items():
+        try:
+            data = yf.download(ticker, period="5d", progress=False)
+            if not data.empty:
+                val = data['Close'].iloc[:, 0] if isinstance(data['Close'], pd.DataFrame) else data['Close']
+                rates[curr] = float(val.dropna().iloc[-1])
+        except: pass
     return rates
 
-# --- 2. 消息发送逻辑 ---
 def send_notifications(title, md_content):
-    # A. 发送邮件
     mail_user = os.getenv('EMAIL_USER')
     mail_pass = os.getenv('EMAIL_PASS')
     receiver = os.getenv('EMAIL_RECEIVER')
+    
     if all([mail_user, mail_pass, receiver]):
         msg = MIMEMultipart()
-        msg['Subject'] = title
-        msg['From'] = f"定投管家 <{mail_user}>"
+        msg['Subject'] = Header(title, 'utf-8')
+        # 核心修复：必须严格符合发件人格式
+        msg['From'] = formataddr((str(Header('全球定投管家', 'utf-8')), mail_user))
         msg['To'] = receiver
-        # 邮件使用简单的 HTML 格式
-        html_body = md_content.replace("\n", "<br>").replace("|", " ")
-        msg.attach(MIMEText(f"<html><body>{html_body}</body></html>", 'html', 'utf-8'))
+        
+        html_body = f"""<div style="font-family:sans-serif;padding:20px;"><h2>{title}</h2>{md_content.replace('\n', '<br>')}</div>"""
+        msg.attach(MIMEText(html_body, 'html', 'utf-8'))
+        
         try:
-            with smtplib.SMTP_SSL("smtp.qq.com", 465) as smtp:
+            with smtplib.SMTP_SSL("smtp.qq.com", 465, timeout=15) as smtp:
                 smtp.login(mail_user, mail_pass)
                 smtp.sendmail(mail_user, [receiver], msg.as_string())
-        except Exception as e: print(f"邮件失败: {e}")
+            print("✉️ 邮件提醒发送成功！")
+        except Exception as e:
+            print(f"❌ 邮件发送失败: {e}")
 
-    # B. 发送 Webhook (钉钉/企微)
     webhook_url = os.getenv('WEBHOOK_URL')
     if webhook_url:
-        payload = {"msgtype": "markdown", "markdown": {"title": title, "text": f"### {title}\n\n{md_content}"}}
-        try: requests.post(webhook_url, json=payload, timeout=10)
+        try:
+            requests.post(webhook_url, json={"msgtype": "markdown", "markdown": {"title": title, "text": f"### {title}\n\n{md_content}"}}, timeout=10)
         except: pass
 
-# --- 3. 核心计算逻辑 ---
 def run_automation():
     with open("assets.json", 'r', encoding='utf-8') as f:
         my_assets = json.load(f)
-    
     rates = get_exchange_rates()
-    results = []; total_rmb_budget = 0
-    now = datetime.now(); today_str = now.strftime("%Y-%m-%d")
-    report_type = "【周一·上周结算】" if now.weekday() == 0 else "【周五·本周盘点】"
+    results, total_rmb = [], 0
+    now = datetime.now()
+    report_type = "【周一版】" if now.weekday() == 0 else "【周五版】"
 
     for name, info in my_assets.items():
         try:
-            data = yf.download(info['ticker'], period="2y", progress=False, timeout=20)
+            data = yf.download(info['ticker'], period="2y", progress=False)
             close = data['Close'].iloc[:, 0] if isinstance(data['Close'], pd.DataFrame) else data['Close']
             curr_p = float(close.iloc[-1])
             ma = [close.rolling(w).mean().iloc[-1] for w in [20, 60, 120, 250]]
@@ -73,25 +75,22 @@ def run_automation():
             
             multiplier = round(max(0.4, min(multiplier, 2.5)), 2)
             rmb_amt = info['base_amount'] * multiplier * rates.get(info['currency'], 1.0)
-            total_rmb_budget += rmb_amt
-
-            results.append({"资产": name, "现价": round(curr_p, 2), "倍数": multiplier, "RMB金额": round(rmb_amt, 2)})
+            total_rmb += rmb_amt
+            results.append({"资产": name, "价格": round(curr_p, 2), "倍数": multiplier, "金额": round(rmb_amt, 2)})
         except: continue
 
     if results:
-        md = f"**总预算：{total_rmb_budget:.2f} CNY**\n\n| 资产 | 现价 | 倍数 | **RMB金额** |\n| :--- | :--- | :--- | :--- |\n"
+        md = f"**本周预计总投入：{total_rmb:.2f} CNY**\n\n| 资产 | 现价 | 倍数 | **建议金额** |\n| :--- | :--- | :--- | :--- |\n"
         for r in results:
-            md += f"| {r['资产']} | {r['现价']} | {r['倍数']}x | **{r['RMB金额']}** |\n"
+            md += f"| {r['资产']} | {r['价格']} | {r['倍数']}x | **{r['金额']}** |\n"
         
         send_notifications(f"{report_type} 定投建议", md)
-        
-        # 存档与 Summary
-        df = pd.DataFrame(results); df['日期'] = today_str
+        df = pd.DataFrame(results); df['日期'] = now.strftime("%Y-%m-%d")
         log = "global_investment_log.csv"
         df.to_csv(log, mode='a', index=False, header=not os.path.exists(log), encoding='utf-8-sig')
         summary = os.getenv('GITHUB_STEP_SUMMARY')
         if summary:
-            with open(summary, 'a') as f: f.write(f"## {report_type} 看板\n{md}")
+            with open(summary, 'a', encoding='utf-8') as f: f.write(f"## {report_type} 看板\n{md}")
 
 if __name__ == "__main__":
     run_automation()
