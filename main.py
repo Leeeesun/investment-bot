@@ -10,7 +10,7 @@ from email.header import Header
 from email.utils import formataddr
 from datetime import datetime
 
-# --- 1. 定投量化核心算法 ---
+# --- 1. 定投量化核心 ---
 def calculate_rsi(prices, period=14):
     delta = prices.diff()
     gain = (delta.where(delta > 0, 0)).rolling(window=period).mean()
@@ -24,18 +24,19 @@ def get_market_context():
     try:
         vix_data = yf.download("^VIX", period="5d", progress=False)
         if not vix_data.empty:
-            # 兼容处理 dataframe 格式
             v_close = vix_data['Close'].iloc[:, 0] if isinstance(vix_data['Close'], pd.DataFrame) else vix_data['Close']
             ctx["VIX"] = float(v_close.dropna().iloc[-1])
     except: pass
     return ctx
 
-# --- 2. AI 战略内参模块 (2026 旗舰版 Gemini 2.0) ---
+# --- 2. AI 战略研判 (2026 旗舰版 Gemini 2.0) ---
 def get_ai_advice(vix, total_amt, results):
     api_key = os.getenv('GEMINI_API_KEY')
     if not api_key: return None
     try:
+        # 初始化 2026 版 GenAI 客户端
         client = genai.Client(api_key=api_key)
+        
         summary = f"VIX恐慌度: {vix}, 今日建议总出资: {total_amt} RMB。\n详情：\n"
         for r in results:
             summary += f"- {r['name']}: RSI {r['rsi']}, 定投权重 {r['m']}x\n"
@@ -45,24 +46,22 @@ def get_ai_advice(vix, total_amt, results):
         {summary}
         
         要求：
-        1. 语气：睿智、稳重、专业。
+        1. 语气：睿智、稳重、专业（行政内参风格）。
         2. 内容：结合VIX情绪和RSI超买超卖，指出目前最优的避险或进攻方案。
         3. 格式：仅输出 HTML 的 <li> 标签列表。
         """
         
-        # 尝试调用 2.0 旗舰模型
-        try:
-            response = client.models.generate_content(model='gemini-2.0-flash', contents=prompt)
-        except:
-            # 备选方案：调用 1.5 稳定版
-            response = client.models.generate_content(model='gemini-1.5-flash', contents=prompt)
-            
+        # 升级至 gemini-2.0-flash
+        response = client.models.generate_content(
+            model='gemini-2.0-flash', 
+            contents=prompt
+        )
         return response.text
     except Exception as e:
         print(f"AI 战略分析连接受阻: {e}")
         return None
 
-# --- 3. Google Finance 视觉系统 ---
+# --- 3. Google Finance 视觉模板 ---
 def send_report(title, total_rmb, results, vix, ai_advice, fallbacks):
     mail_user = os.getenv('EMAIL_USER')
     mail_pass = os.getenv('EMAIL_PASS')
@@ -71,7 +70,6 @@ def send_report(title, total_rmb, results, vix, ai_advice, fallbacks):
 
     rows_html = ""
     for r in results:
-        # Google Finance 经典红绿逻辑
         m_color = "#137333" if r['m'] >= 1.3 else ("#c5221f" if r['m'] <= 0.6 else "#3c4043")
         m_bg = "#e6f4ea" if r['m'] >= 1.3 else ("#fce8e6" if r['m'] <= 0.6 else "#f8f9fa")
         rows_html += f"""
@@ -86,7 +84,7 @@ def send_report(title, total_rmb, results, vix, ai_advice, fallbacks):
         </tr>"""
 
     advice_body = ai_advice if ai_advice else "".join([f"<li>{f}</li>" for f in fallbacks])
-    badge = '<span style="background:#e8f0fe; color:#1a73e8; padding:2px 8px; border-radius:12px; font-size:10px; margin-left:10px; font-weight:600;">AI INSIGHT</span>' if ai_advice else ''
+    badge = '<span style="background:#e8f0fe; color:#1a73e8; padding:2px 8px; border-radius:12px; font-size:10px; margin-left:10px; font-weight:600;">AI STRATEGY 2.0</span>' if ai_advice else ''
 
     html = f"""
     <div style="font-family:'Roboto',Arial,sans-serif; max-width:650px; margin:auto; border:1px solid #dadce0; border-radius:8px; overflow:hidden;">
@@ -97,12 +95,12 @@ def send_report(title, total_rmb, results, vix, ai_advice, fallbacks):
             <table width="100%" style="margin-bottom:24px;">
                 <tr>
                     <td style="border:1px solid #dadce0; border-radius:8px; padding:16px; width:48%;">
-                        <div style="color:#70757a; font-size:11px; margin-bottom:4px; text-transform:uppercase;">Volatility (VIX)</div>
+                        <div style="color:#70757a; font-size:11px; margin-bottom:4px; text-transform:uppercase;">Market VIX</div>
                         <div style="font-size:28px; color:#202124;">{vix}</div>
                     </td>
                     <td width="4%"></td>
                     <td style="border:1px solid #dadce0; border-radius:8px; padding:16px; width:48%;">
-                        <div style="color:#70757a; font-size:11px; margin-bottom:4px; text-transform:uppercase;">Daily Budget (RMB)</div>
+                        <div style="color:#70757a; font-size:11px; margin-bottom:4px; text-transform:uppercase;">Execution Budget (RMB)</div>
                         <div style="font-size:28px; color:#1a73e8; font-weight:500;">¥ {total_rmb:,.2f}</div>
                     </td>
                 </tr>
@@ -118,14 +116,13 @@ def send_report(title, total_rmb, results, vix, ai_advice, fallbacks):
             </table>
             <div style="background:#f8f9fa; border-radius:8px; padding:24px; border:1px solid #eee;">
                 <div style="font-size:15px; color:#202124; font-weight:500; margin-bottom:12px; display:flex; align-items:center;">
-                    <span style="color:#1a73e8; margin-right:8px; font-weight:bold;">✦</span> 战略研判建议 (2026版)
+                    <span style="color:#1a73e8; margin-right:8px; font-weight:bold;">✦</span> 战略研判建议 (2026 Pro版)
                 </div>
                 <ul style="margin:0; padding-left:20px; font-size:14px; color:#3c4043; line-height:1.8;">{advice_body}</ul>
             </div>
         </div>
         <div style="background:#f1f3f4; padding:16px 24px; text-align:center; color:#70757a; font-size:11px;">
-            Sentinel Intelligence Pro · {datetime.now().strftime('%Y-%m-%d %H:%M')}<br>
-            提示：入场前请核对场内溢价。
+            Sentinel Intelligence Pro 4.5 · {datetime.now().strftime('%Y-%m-%d %H:%M')}
         </div>
     </div>"""
     
@@ -139,7 +136,7 @@ def send_report(title, total_rmb, results, vix, ai_advice, fallbacks):
         with smtplib.SMTP_SSL("smtp.qq.com", 465, timeout=15) as smtp:
             smtp.login(mail_user, mail_pass)
             smtp.sendmail(mail_user, [receiver], msg.as_string())
-    except Exception as e: print(f"邮件错误: {e}")
+    except Exception as e: print(f"邮件投递错误: {e}")
 
 # --- 4. 运行引擎 ---
 def main():
@@ -148,7 +145,7 @@ def main():
         assets = json.load(f)
     
     ctx = get_market_context()
-    results, total_all, fallbacks, alerts_triggered = [], 0, [], False
+    results, total_all, alerts_triggered = [], 0, False
     
     for name, info in assets.items():
         try:
@@ -165,7 +162,6 @@ def main():
             if rsi < 35: m += 0.3
             if rsi > 65: m -= 0.3
             if ctx['VIX'] > 25: m += 0.2
-            
             m = round(max(0.4, min(m, 3.5)), 2)
             rmb = round(info['base_amount'] * m, 2)
             results.append({"name": name, "p": round(curr_p, 2), "rsi": rsi, "m": m, "rmb": rmb})
@@ -174,14 +170,14 @@ def main():
         except: continue
 
     if results:
-        # 数据存档
+        # 存档数据
         df = pd.DataFrame(results); df['日期'] = datetime.now().strftime("%Y-%m-%d")
-        df.to_csv("global_investment_log.csv", mode='a', index=False, header=not os.path.exists("global_investment_log.csv"), encoding='utf-8-sig')
+        log_file = "global_investment_log.csv"
+        df.to_csv(log_file, mode='a', index=False, header=not os.path.exists(log_file), encoding='utf-8-sig')
         
-        # 发送报告 (满足条件才打扰梁县长)
-        if alerts_triggered:
-            ai_advice = get_ai_advice(round(ctx['VIX'], 1), round(total_all, 2), results)
-            send_report(f"Strategic Intelligence: {datetime.now().strftime('%m/%d')}", total_all, results, round(ctx['VIX'], 1), ai_advice, ["市场波动触发信号，建议执行定投计划。"])
+        # 只要有数据就发送，确保梁县长每天能看到看板 (如果您想只在有信号时发，请保留 if alerts_triggered)
+        ai_advice = get_ai_advice(round(ctx['VIX'], 1), round(total_all, 2), results)
+        send_report(f"Strategic Intelligence: {datetime.now().strftime('%m/%d')}", total_all, results, round(ctx['VIX'], 1), ai_advice, ["市场处于常态波动，建议维持基准定投。"])
 
 if __name__ == "__main__":
     main()

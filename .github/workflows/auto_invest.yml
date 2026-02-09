@@ -10,22 +10,33 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       contents: write
+      
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-python@v4
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
         with:
-          python-version: '3.9'
-      - name: Install
-        run: pip install yfinance pandas google-genai
-      - name: Run
+          python-version: '3.12' # 升级到 2026 稳定版
+
+      - name: Install Dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install yfinance pandas requests google-genai
+
+      - name: Execute Script
         env:
           EMAIL_USER: ${{ secrets.EMAIL_USER }}
           EMAIL_PASS: ${{ secrets.EMAIL_PASS }}
           EMAIL_RECEIVER: ${{ secrets.EMAIL_RECEIVER }}
           GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
         run: python main.py
+
       - name: Auto Log
         uses: stefanzweifel/git-auto-commit-action@v5
         with:
-          commit_message: "Data log updated: ${{ github.event.head_commit.timestamp }}"
+          commit_message: "Sentinel Insight Updated: ${{ github.event.head_commit.timestamp }}"
           file_pattern: 'global_investment_log.csv'
+          commit_user_name: "Xishui-Sentinel-Bot"
+          commit_user_email: "actions@github.com"
