@@ -2,8 +2,9 @@ name: Global Invest Bot
 
 on:
   schedule:
-    - cron: '0 2 * * *' # 北京时间 10:00 运行
-  workflow_dispatch:
+    - cron: '0 2 * * *'   # 第一次运行：北京时间 10:00 (美股收盘后/A股开盘前)
+    - cron: '50 6 * * *'  # 第二次运行：北京时间 14:50 (港股/日经接近收盘，决策当日动作)
+  workflow_dispatch:      # 允许您在 GitHub 网页上手动点击触发
 
 jobs:
   run_bot:
@@ -30,11 +31,11 @@ jobs:
           EMAIL_USER: ${{ secrets.EMAIL_USER }}
           EMAIL_PASS: ${{ secrets.EMAIL_PASS }}
           EMAIL_RECEIVER: ${{ secrets.EMAIL_RECEIVER }}
-          ZHIPU_API_KEY: ${{ secrets.ZHIPU_API_KEY }} # ！！！这里改成了智谱的密钥
+          ZHIPU_API_KEY: ${{ secrets.ZHIPU_API_KEY }}
         run: python main.py
 
-      - name: Auto Log
+      - name: Auto Save Data
         uses: stefanzweifel/git-auto-commit-action@v5
         with:
-          commit_message: "Sentinel Data Sync: ${{ github.event.head_commit.timestamp }}"
+          commit_message: "Sentinel Insight Update: ${{ github.event.head_commit.timestamp }}"
           file_pattern: 'global_investment_log.csv'

@@ -32,50 +32,47 @@ def get_market_context():
     except: pass
     return ctx
 
-# --- 2. 智谱 AI 战略模块 (修复超时与重试逻辑) ---
+# --- 2. 智谱 AI 战略模块 (终极加固：应对跨海网络延迟) ---
 def get_ai_advice(vix, total_amt, results):
     api_key = os.getenv('ZHIPU_API_KEY')
     if not api_key: 
-        print("❌ 错误：未发现 ZHIPU_API_KEY 环境变量")
+        print("❌ 错误：未设置 ZHIPU_API_KEY")
         return None
     
     url = "https://open.bigmodel.cn/api/paas/v4/chat/completions"
     headers = {"Authorization": f"Bearer {api_key}", "Content-Type": "application/json"}
     
-    summary = f"VIX: {vix}, 今日建议投入: {total_amt} RMB。\n资产配置："
+    summary = f"VIX: {vix}, 预算: {total_amt} RMB。\n详情："
     for r in results:
-        summary += f" {r['name']}({r['m']}倍);"
+        summary += f" {r['name']}({r['m']}x);"
     
     payload = {
         "model": "glm-4-flash",
         "messages": [
-            {"role": "system", "content": "你是一位专注于全球配置的资深策略师。请为行政官员提供3条简明、稳重的执行建议，仅使用<li>标签。"},
-            {"role": "user", "content": f"分析并建议：{summary}"}
+            {"role": "system", "content": "你是一位首席策略师。请为行政官员提供3条稳重、简练的执行建议，仅使用<li>标签。"},
+            {"role": "user", "content": f"分析数据并决策：{summary}"}
         ],
         "temperature": 0.2
     }
 
-    # 针对跨海网络波动的重试机制
+    # 针对跨海网络波动的 5 次重试机制
     for attempt in range(5):
         try:
-            print(f"📡 正在尝试连接 AI 决策引擎 (第 {attempt+1}/5 次)...")
-            # 延长 timeout 以应对 Read timed out 问题 
+            print(f"📡 正在呼叫 AI 决策引擎 (第 {attempt+1}/5 次)...")
+            # 延长等待时间：15秒建立连接，100秒等待数据返回
             response = requests.post(url, headers=headers, json=payload, timeout=(15, 100))
             response.raise_for_status()
             res_data = response.json()
-            print("✅ AI 建议生成成功。")
             return res_data['choices'][0]['message']['content']
         except Exception as e:
-            print(f"⚠️ 信号干扰 (Attempt {attempt+1}): {e}")
+            print(f"⚠️ 连接抖动 (Attempt {attempt+1}): {e}")
             if attempt < 4:
-                wait_time = (attempt + 1) * 10
-                print(f"⌛ 正在原地待命，{wait_time}秒后重新呼叫...")
-                time.sleep(wait_time)
+                time.sleep((attempt + 1) * 10) # 梯度增加等待时间
             else:
-                print("❌ 跨海链路严重受阻，已达到最大重试次数。")
+                print("❌ 跨海链路严重受阻，已达重试上限。")
     return None
 
-# --- 3. Google Finance 风格模板 ---
+# --- 3. 视觉模板 ---
 def send_report(title, total_rmb, results, vix, ai_advice):
     mail_user = os.getenv('EMAIL_USER')
     mail_pass = os.getenv('EMAIL_PASS')
@@ -85,7 +82,7 @@ def send_report(title, total_rmb, results, vix, ai_advice):
     rows_html = "".join([f"""
         <tr style="border-bottom: 1px solid #dadce0;">
             <td style="padding:16px 8px; color:#1a73e8; font-weight:500;">{r['name']}</td>
-            <td style="padding:16px 8px; text-align:right; color:#202124;">{r['p']}</td>
+            <td style="padding:16px 8px; text-align:right;">{r['p']}</td>
             <td style="padding:16px 8px; text-align:right; color:#70757a;">{r['rsi']}</td>
             <td style="padding:16px 8px; text-align:right;">
                 <span style="padding:4px 10px; border-radius:4px; background:{'#e6f4ea' if r['m']>=1.3 else '#fce8e6' if r['m']<=0.6 else '#f8f9fa'}; color:{'#137333' if r['m']>=1.3 else '#c5221f' if r['m']<=0.6 else '#3c4043'}; font-weight:600; font-size:12px;">{r['m']}x</span>
@@ -108,28 +105,26 @@ def send_report(title, total_rmb, results, vix, ai_advice):
                     </td>
                     <td width="4%"></td>
                     <td style="border:1px solid #dadce0; border-radius:8px; padding:16px; width:48%;">
-                        <div style="color:#70757a; font-size:11px; margin-bottom:4px; text-transform:uppercase;">Daily Allocation (RMB)</div>
+                        <div style="color:#70757a; font-size:11px; margin-bottom:4px; text-transform:uppercase;">Daily Budget (RMB)</div>
                         <div style="font-size:28px; color:#1a73e8; font-weight:500;">¥ {total_rmb:,.2f}</div>
                     </td>
                 </tr>
             </table>
             <table width="100%" style="border-collapse:collapse; margin-bottom:30px; font-size:13px;">
                 <thead>
-                    <tr style="border-bottom: 1px solid #dadce0; color:#70757a; text-transform:uppercase;">
+                    <tr style="border-bottom: 1px solid #dadce0; color: #70757a; text-transform: uppercase;">
                         <th align="left">Asset</th><th align="right">Price</th><th align="right">RSI</th><th align="right">Mult.</th><th align="right">Amount</th>
                     </tr>
                 </thead>
                 <tbody>{rows_html}</tbody>
             </table>
             <div style="background:#f8f9fa; border-radius:8px; padding:24px; border:1px solid #eee;">
-                <div style="font-size:15px; color:#202124; font-weight:500; margin-bottom:12px; display:flex; align-items:center;">
-                    <span style="color:#1a73e8; font-weight:bold; margin-right:8px;">✦</span> 战略执行决策建议 (智谱 AI)
-                </div>
-                <ul style="margin:0; padding-left:20px; font-size:14px; color:#3c4043; line-height:1.8;">{ai_advice if ai_advice else '<li>内参引擎同步中，请先参考量化倍数执行。</li>'}</ul>
+                <div style="font-size:15px; color:#202124; font-weight:500; margin-bottom:12px;">战略执行建议 (智谱 AI)</div>
+                <ul style="margin:0; padding-left:20px; font-size:14px; color:#3c4043; line-height:1.8;">{ai_advice if ai_advice else '<li>内参引擎同步中，请先参考量化权重执行。</li>'}</ul>
             </div>
         </div>
-        <div style="background:#f1f3f4; padding:16px 24px; text-align:center; color:#70757a; font-size:11px;">
-            Sentinel Pro 5.6 (Region: East US) · {datetime.now().strftime('%Y-%m-%d %H:%M')}
+        <div style="background:#f1f3f4; padding:12px 24px; text-align:center; color:#9aa0a6; font-size:10px;">
+            Sentinel Pro 5.6 (Dual-Schedule Enhanced) · {datetime.now().strftime('%Y-%m-%d %H:%M')}
         </div>
     </div>"""
     
@@ -171,17 +166,14 @@ def main():
             rmb_amt = round(info['base_amount'] * m, 2)
             results.append({"name": name, "p": round(curr_p, 2), "rsi": rsi_val, "m": m, "rmb": rmb_amt})
             total_all += rmb_amt
-        except Exception as e: # 修正此处的语法错误 
+        except Exception as e:
             print(f"Skip: {name} - {e}")
 
     if results:
-        # 数据归档
         df = pd.DataFrame(results); df['日期'] = datetime.now().strftime("%Y-%m-%d")
         df.to_csv("global_investment_log.csv", mode='a', index=False, header=not os.path.exists("global_investment_log.csv"), encoding='utf-8-sig')
-        
-        # 呼叫 AI 幕僚
         ai_res = get_ai_advice(round(ctx['VIX'], 1), round(total_all, 2), results)
-        send_report(f"Strategic Portfolio: {datetime.now().strftime('%m/%d')} 决策日报", total_all, results, round(ctx['VIX'], 1), ai_res)
+        send_report(f"Strategic Intelligence: {datetime.now().strftime('%m/%d')} 决策日报", total_all, results, round(ctx['VIX'], 1), ai_res)
 
 if __name__ == "__main__":
     main()
