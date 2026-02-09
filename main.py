@@ -10,7 +10,7 @@ from email.header import Header
 from email.utils import formataddr
 from datetime import datetime
 
-# --- 1. 定投模型引擎 (保持人民币基准) ---
+# --- 1. 计算核心 (保持人民币基准) ---
 def calculate_rsi(prices, period=14):
     delta = prices.diff()
     gain = (delta.where(delta > 0, 0)).rolling(window=period).mean()
@@ -26,54 +26,52 @@ def get_market_context():
         if not vix_data.empty:
             v_close = vix_data['Close'].iloc[:, 0] if isinstance(vix_data['Close'], pd.DataFrame) else vix_data['Close']
             context["VIX"] = float(v_close.dropna().iloc[-1])
-        rate_data = yf.download("USDCNY=X", period="5d", progress=False)
-        if not rate_data.empty:
-            r_close = rate_data['Close'].iloc[:, 0] if isinstance(rate_data['Close'], pd.DataFrame) else rate_data['Close']
-            context["rates"]["USD"] = float(r_close.dropna().iloc[-1])
     except: pass
     return context
 
-# --- 2. 奢华视觉报告系统 (Black Gold Edition) ---
-def send_luxury_report(title, total_rmb, results, vix, alert_list):
+# --- 2. 视觉进化版：高端行政简报 (High-End Minimalism) ---
+def send_executive_report(title, total_rmb, results, vix, alert_list):
     mail_user = os.getenv('EMAIL_USER')
     mail_pass = os.getenv('EMAIL_PASS')
     receiver = os.getenv('EMAIL_RECEIVER')
     if not all([mail_user, mail_pass, receiver]): return
 
-    # 构造表格行 - 奢华质感
+    # 构造表格行 - 极致简洁
     rows_html = ""
     for r in results:
-        # 倍数颜色：高加仓用玫瑰金感，减仓用高级灰
-        m_style = "color: #C5A059; font-weight: bold;" if r['m'] >= 1.3 else ("color: #8E8E93;" if r['m'] <= 0.6 else "color: #333;")
+        # 仅通过字体加粗和微小的颜色变化体现重点
+        m_style = "color: #AF2D2D; font-weight: 600;" if r['m'] >= 1.3 else ("color: #2D5FAF;" if r['m'] <= 0.6 else "color: #1C1C1E;")
         rows_html += f"""
-        <tr style="border-bottom: 1px solid #F0F0F0;">
-            <td style="padding: 18px 10px; color: #1C1C1E; font-family: 'PingFang SC', sans-serif;">{r['name']}</td>
-            <td style="padding: 18px 10px; text-align: center; color: #636366;">{r['p']}</td>
-            <td style="padding: 18px 10px; text-align: center; color: #636366;">{r['rsi']}</td>
-            <td style="padding: 18px 10px; text-align: center; {m_style}">{r['m']}x</td>
-            <td style="padding: 18px 10px; text-align: right; color: #000000; font-weight: 600; font-size: 15px;">¥{r['rmb']:,}</td>
+        <tr style="border-bottom: 0.5px solid #E5E5EA;">
+            <td style="padding: 20px 0; color: #1C1C1E; font-size: 15px; font-weight: 500;">{r['name']}</td>
+            <td style="padding: 20px 0; text-align: center; color: #8E8E93; font-size: 14px;">{r['p']}</td>
+            <td style="padding: 20px 0; text-align: center; color: #8E8E93; font-size: 14px;">{r['rsi']}</td>
+            <td style="padding: 20px 0; text-align: center; {m_style}">{r['m']}x</td>
+            <td style="padding: 20px 0; text-align: right; color: #1C1C1E; font-weight: 600; font-size: 16px;">¥{r['rmb']:,}</td>
         </tr>
         """
     
-    alert_html = "".join([f"<li style='margin-bottom:12px; border-left: 2px solid #C5A059; padding-left: 15px;'>{a}</li>" for a in alert_list])
+    # 构造决策建议：采用“批注”风格
+    alert_html = "".join([f"<div style='margin-bottom:12px; border-left: 3px solid #1C1C1E; padding-left: 15px; color: #3A3A3C;'>{a}</div>" for a in alert_list])
 
     html_content = f"""
     <html>
-    <body style="margin: 0; padding: 0; background-color: #F4F4F4; font-family: 'Times New Roman', 'PingFang SC', serif;">
+    <body style="margin: 0; padding: 0; background-color: #FBFBFB; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;">
         <table width="100%" border="0" cellspacing="0" cellpadding="0">
             <tr>
-                <td align="center" style="padding: 50px 0;">
-                    <table width="640" border="0" cellspacing="0" cellpadding="0" style="background-color: #FFFFFF; box-shadow: 0 20px 40px rgba(0,0,0,0.08);">
+                <td align="center" style="padding: 60px 0;">
+                    <table width="600" border="0" cellspacing="0" cellpadding="0" style="background-color: #FFFFFF; border-radius: 2px; box-shadow: 0 4px 24px rgba(0,0,0,0.04);">
+                        
                         <tr>
-                            <td style="background-color: #0F172A; padding: 45px 50px; border-bottom: 4px solid #C5A059;">
+                            <td style="padding: 40px 50px 30px 50px; border-bottom: 2px solid #1C1C1E;">
                                 <table width="100%" border="0" cellspacing="0" cellpadding="0">
                                     <tr>
                                         <td>
-                                            <h2 style="color: #C5A059; margin: 0; font-size: 12px; text-transform: uppercase; letter-spacing: 4px; font-weight: 400;">Private Intelligence</h2>
-                                            <h1 style="color: #FFFFFF; margin: 5px 0 0 0; font-size: 26px; font-weight: 500; letter-spacing: 1px;">全球资产策略简报</h1>
+                                            <h1 style="margin: 0; color: #1C1C1E; font-size: 24px; font-weight: 600; letter-spacing: -0.5px;">策略投资组合日报</h1>
+                                            <p style="margin: 5px 0 0 0; color: #8E8E93; font-size: 12px; text-transform: uppercase; letter-spacing: 2px;">Quantitative Strategy Report</p>
                                         </td>
-                                        <td align="right" style="color: #C5A059; font-size: 14px; letter-spacing: 1px;">
-                                            {datetime.now().strftime('%Y / %m / %d')}
+                                        <td align="right" valign="bottom">
+                                            <p style="margin: 0; color: #1C1C1E; font-size: 14px; font-weight: 500;">{datetime.now().strftime('%Y.%m.%d')}</p>
                                         </td>
                                     </tr>
                                 </table>
@@ -81,16 +79,16 @@ def send_luxury_report(title, total_rmb, results, vix, alert_list):
                         </tr>
                         
                         <tr>
-                            <td style="padding: 40px 50px 20px 50px;">
+                            <td style="padding: 40px 50px 10px 50px;">
                                 <table width="100%" border="0" cellspacing="0" cellpadding="0">
                                     <tr>
-                                        <td width="50%" style="border-right: 1px solid #EEEEEE;">
-                                            <p style="color: #8E8E93; font-size: 11px; margin: 0; text-transform: uppercase;">市场恐慌指数 / VIX</p>
-                                            <p style="color: #1C1C1E; font-size: 24px; margin: 5px 0 0 0; font-weight: 300;">{vix}</p>
+                                        <td>
+                                            <p style="color: #8E8E93; font-size: 11px; margin: 0; text-transform: uppercase; letter-spacing: 1px;">Market Volatility (VIX)</p>
+                                            <p style="color: #1C1C1E; font-size: 22px; margin: 4px 0 0 0; font-weight: 400;">{vix}</p>
                                         </td>
-                                        <td width="50%" style="padding-left: 30px;">
-                                            <p style="color: #8E8E93; font-size: 11px; margin: 0; text-transform: uppercase;">今日执行预算 / Total</p>
-                                            <p style="color: #C5A059; font-size: 24px; margin: 5px 0 0 0; font-weight: 500;">¥ {total_rmb:,.2f}</p>
+                                        <td align="right">
+                                            <p style="color: #8E8E93; font-size: 11px; margin: 0; text-transform: uppercase; letter-spacing: 1px;">Total Allocation (RMB)</p>
+                                            <p style="color: #1C1C1E; font-size: 22px; margin: 4px 0 0 0; font-weight: 600;">¥ {total_rmb:,.2f}</p>
                                         </td>
                                     </tr>
                                 </table>
@@ -99,14 +97,14 @@ def send_luxury_report(title, total_rmb, results, vix, alert_list):
 
                         <tr>
                             <td style="padding: 20px 50px 40px 50px;">
-                                <table width="100%" border="0" cellspacing="0" cellpadding="0" style="font-size: 14px; border-collapse: collapse;">
+                                <table width="100%" border="0" cellspacing="0" cellpadding="0" style="border-collapse: collapse;">
                                     <thead>
-                                        <tr style="border-bottom: 1px solid #000000;">
-                                            <th align="left" style="padding: 15px 10px; color: #1C1C1E; font-weight: 600; text-transform: uppercase; font-size: 11px; letter-spacing: 1px;">Assets</th>
-                                            <th align="center" style="padding: 15px 10px; color: #1C1C1E; font-weight: 600; text-transform: uppercase; font-size: 11px;">Price</th>
-                                            <th align="center" style="padding: 15px 10px; color: #1C1C1E; font-weight: 600; text-transform: uppercase; font-size: 11px;">RSI</th>
-                                            <th align="center" style="padding: 15px 10px; color: #1C1C1E; font-weight: 600; text-transform: uppercase; font-size: 11px;">Mult.</th>
-                                            <th align="right" style="padding: 15px 10px; color: #1C1C1E; font-weight: 600; text-transform: uppercase; font-size: 11px;">Amount</th>
+                                        <tr style="border-bottom: 1px solid #1C1C1E;">
+                                            <th align="left" style="padding: 12px 0; color: #1C1C1E; font-size: 11px; text-transform: uppercase; letter-spacing: 1px;">Asset Name</th>
+                                            <th align="center" style="padding: 12px 0; color: #1C1C1E; font-size: 11px; text-transform: uppercase;">Price</th>
+                                            <th align="center" style="padding: 12px 0; color: #1C1C1E; font-size: 11px; text-transform: uppercase;">RSI</th>
+                                            <th align="center" style="padding: 12px 0; color: #1C1C1E; font-size: 11px; text-transform: uppercase;">Mult.</th>
+                                            <th align="right" style="padding: 12px 0; color: #1C1C1E; font-size: 11px; text-transform: uppercase;">Subtotal</th>
                                         </tr>
                                     </thead>
                                     <tbody>
@@ -118,19 +116,22 @@ def send_luxury_report(title, total_rmb, results, vix, alert_list):
 
                         <tr>
                             <td style="padding: 0 50px 50px 50px;">
-                                <div style="background-color: #FBFBFB; padding: 30px; border-radius: 2px;">
-                                    <h3 style="margin: 0 0 20px 0; color: #1C1C1E; font-size: 16px; font-weight: 500; border-bottom: 1px solid #C5A059; display: inline-block; padding-bottom: 5px;">战略执行建议</h3>
-                                    <ul style="margin: 0; padding: 0; list-style: none; color: #3A3A3C; font-size: 14px; line-height: 2;">
+                                <div style="background-color: #F2F2F7; padding: 30px; border-radius: 4px;">
+                                    <h3 style="margin: 0 0 20px 0; color: #1C1C1E; font-size: 15px; font-weight: 600; text-transform: uppercase; letter-spacing: 1px;">Executive Summary</h3>
+                                    <div style="font-size: 14px; line-height: 1.6; color: #3A3A3C;">
                                         {alert_html}
-                                    </ul>
+                                    </div>
+                                    <div style="margin-top: 25px; font-size: 11px; color: #8E8E93; border-top: 1px solid #D1D1D6; padding-top: 15px;">
+                                        * 此建议基于多维量化模型生成，场内执行请关注 IOPV 溢价。
+                                    </div>
                                 </div>
                             </td>
                         </tr>
 
                         <tr>
-                            <td style="background-color: #FFFFFF; padding: 30px 50px; text-align: center; border-top: 1px solid #F4F4F4;">
-                                <p style="color: #AEAEB2; font-size: 10px; margin: 0; letter-spacing: 2px; text-transform: uppercase;">
-                                    Confidential Strategic Intelligence · Automated Generation
+                            <td style="padding: 0 50px 40px 50px; text-align: center;">
+                                <p style="color: #C7C7CC; font-size: 10px; margin: 0; letter-spacing: 2px; text-transform: uppercase;">
+                                    Confidential Portfolio Sentinel · Automated System
                                 </p>
                             </td>
                         </tr>
@@ -144,7 +145,7 @@ def send_luxury_report(title, total_rmb, results, vix, alert_list):
     
     msg = MIMEMultipart()
     msg['Subject'] = Header(title, 'utf-8')
-    msg['From'] = formataddr((str(Header('Sentinel Intelligence Pro', 'utf-8')), mail_user))
+    msg['From'] = formataddr((str(Header('Sentinel Intelligence', 'utf-8')), mail_user))
     msg['To'] = receiver
     msg.attach(MIMEText(html_content, 'html', 'utf-8'))
     
@@ -152,8 +153,8 @@ def send_luxury_report(title, total_rmb, results, vix, alert_list):
         with smtplib.SMTP_SSL("smtp.qq.com", 465, timeout=15) as smtp:
             smtp.login(mail_user, mail_pass)
             smtp.sendmail(mail_user, [receiver], msg.as_string())
-        print("✉️ 尊享版策略简报已送达。")
-    except Exception as e: print(f"发送异常: {e}")
+        print("✉️ 行政精简版简报发送成功。")
+    except Exception as e: print(f"发送失败: {e}")
 
 # --- 3. 运行逻辑 ---
 def main():
@@ -188,19 +189,17 @@ def main():
             total_rmb += rmb_amt
             
             if m >= 1.3 or rsi_val <= 35:
-                alert_list.append(f"<b>{name}</b> 现处于战略级低估区间，建议启动强化配置计划。")
+                alert_list.append(f"资产 <b>{name}</b> 处于价值洼地，建议增加配置头寸。")
             elif m <= 0.6 or rsi_val >= 65:
-                alert_list.append(f"<b>{name}</b> 市场热度已达峰值，建议执行风险规避，暂缓投入。")
+                alert_list.append(f"资产 <b>{name}</b> 动能趋于枯竭，建议收缩投资规模。")
         except: continue
 
     if results:
-        # 记录数据
         df = pd.DataFrame(results); df['日期'] = datetime.now().strftime("%Y-%m-%d")
         df.to_csv("global_investment_log.csv", mode='a', index=False, header=not os.path.exists("global_investment_log.csv"), encoding='utf-8-sig')
         
-        # 触发预警
         if alert_list:
-            send_luxury_report(f"Strategic Intelligence: {datetime.now().strftime('%m / %d')} 资产研判", total_rmb, results, round(ctx['VIX'], 1), alert_list)
+            send_executive_report(f"Strategic Intelligence Report - {datetime.now().strftime('%m.%d')}", total_rmb, results, round(ctx['VIX'], 1), alert_list)
 
 if __name__ == "__main__":
     main()
