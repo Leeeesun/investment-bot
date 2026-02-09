@@ -62,8 +62,8 @@ def send_google_style_report(title, total_rmb, results, vix, alert_list):
         <table width="100%" border="0" cellspacing="0" cellpadding="0" style="max-width: 650px; margin: auto;">
             <tr>
                 <td style="padding: 24px 16px; border-bottom: 1px solid #dadce0;">
-                    <span style="font-size: 22px; color: #5f6368;">投资</span>
-                    <span style="font-size: 22px; color: #5f6368; font-weight: 400;"> 简报</span>
+                    <span style="font-size: 22px; color: #5f6368;">Investment</span>
+                    <span style="font-size: 22px; color: #5f6368; font-weight: 400;"> Bot</span>
                     <span style="margin-left: 8px; padding: 2px 6px; background: #1a73e8; color: white; border-radius: 3px; font-size: 12px; vertical-align: middle;">PRO</span>
                 </td>
             </tr>
