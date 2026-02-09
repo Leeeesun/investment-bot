@@ -10,6 +10,7 @@ from email.header import Header
 from email.utils import formataddr
 from datetime import datetime
 
+# --- 1. 获取汇率逻辑 ---
 def get_exchange_rates():
     rates = {"CNY": 1.0, "USD": 7.25, "JPY": 0.048, "EUR": 7.8, "HKD": 0.93}
     tickers = {"USD": "USDCNY=X", "JPY": "JPYCNY=X", "EUR": "EURCNY=X", "HKD": "HKDCNY=X"}
@@ -22,6 +23,7 @@ def get_exchange_rates():
         except: pass
     return rates
 
+# --- 2. 消息发送逻辑 ---
 def send_notifications(title, md_content):
     mail_user = os.getenv('EMAIL_USER')
     mail_pass = os.getenv('EMAIL_PASS')
@@ -30,11 +32,14 @@ def send_notifications(title, md_content):
     if all([mail_user, mail_pass, receiver]):
         msg = MIMEMultipart()
         msg['Subject'] = Header(title, 'utf-8')
-        # 核心修复：必须严格符合发件人格式
+        # 严格遵守 RFC5322 协议
         msg['From'] = formataddr((str(Header('全球定投管家', 'utf-8')), mail_user))
         msg['To'] = receiver
         
-        html_body = f"""<div style="font-family:sans-serif;padding:20px;"><h2>{title}</h2>{md_content.replace('\n', '<br>')}</div>"""
+        # 修复 SyntaxError: 先在外部处理换行符，不要放在 f-string 内部
+        content_html = md_content.replace('\n', '<br>')
+        html_body = f"""<div style="font-family:sans-serif;padding:20px;"><h2>{title}</h2>{content_html}</div>"""
+        
         msg.attach(MIMEText(html_body, 'html', 'utf-8'))
         
         try:
@@ -51,9 +56,15 @@ def send_notifications(title, md_content):
             requests.post(webhook_url, json={"msgtype": "markdown", "markdown": {"title": title, "text": f"### {title}\n\n{md_content}"}}, timeout=10)
         except: pass
 
+# --- 3. 核心计算逻辑 ---
 def run_automation():
+    if not os.path.exists("assets.json"):
+        print("❌ 错误：未找到 assets.json")
+        return
+
     with open("assets.json", 'r', encoding='utf-8') as f:
         my_assets = json.load(f)
+    
     rates = get_exchange_rates()
     results, total_rmb = [], 0
     now = datetime.now()
@@ -62,6 +73,8 @@ def run_automation():
     for name, info in my_assets.items():
         try:
             data = yf.download(info['ticker'], period="2y", progress=False)
+            if data.empty: continue
+            
             close = data['Close'].iloc[:, 0] if isinstance(data['Close'], pd.DataFrame) else data['Close']
             curr_p = float(close.iloc[-1])
             ma = [close.rolling(w).mean().iloc[-1] for w in [20, 60, 120, 250]]
@@ -80,17 +93,23 @@ def run_automation():
         except: continue
 
     if results:
-        md = f"**本周预计总投入：{total_rmb:.2f} CNY**\n\n| 资产 | 现价 | 倍数 | **建议金额** |\n| :--- | :--- | :--- | :--- |\n"
+        md = f"**本周单次预计投入：{total_rmb:.2f} CNY**\n\n| 资产 | 现价 | 倍数 | **建议金额** |\n| :--- | :--- | :--- | :--- |\n"
         for r in results:
             md += f"| {r['资产']} | {r['价格']} | {r['倍数']}x | **{r['金额']}** |\n"
         
         send_notifications(f"{report_type} 定投建议", md)
+        
         df = pd.DataFrame(results); df['日期'] = now.strftime("%Y-%m-%d")
         log = "global_investment_log.csv"
-        df.to_csv(log, mode='a', index=False, header=not os.path.exists(log), encoding='utf-8-sig')
+        # 写入 CSV
+        if os.path.exists(log):
+            df.to_csv(log, mode='a', index=False, header=False, encoding='utf-8-sig')
+        else:
+            df.to_csv(log, index=False, encoding='utf-8-sig')
+            
         summary = os.getenv('GITHUB_STEP_SUMMARY')
         if summary:
-            with open(summary, 'a', encoding='utf-8') as f: f.write(f"## {report_type} 看板\n{md}")
+            with open(summary, 'a', encoding='utf-8') as f: f.write(f"## {report_type} 决策看板\n{md}")
 
 if __name__ == "__main__":
     run_automation()
