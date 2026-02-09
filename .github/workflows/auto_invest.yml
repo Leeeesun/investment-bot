@@ -2,7 +2,7 @@ name: Global Invest Bot
 
 on:
   schedule:
-    - cron: '0 2 * * *' # 每天北京时间 10:00 运行
+    - cron: '0 2 * * *' # 北京时间 10:00
   workflow_dispatch:
 
 jobs:
@@ -10,33 +10,22 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       contents: write
-      
     steps:
-      - name: Checkout Code
-        uses: actions/checkout@v4
-
-      - name: Setup Python
-        uses: actions/setup-python@v4
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v4
         with:
           python-version: '3.9'
-
-      - name: Install Dependencies
-        run: |
-          python -m pip install --upgrade pip
-          pip install yfinance pandas requests google-generativeai
-
-      - name: Execute Script
+      - name: Install
+        run: pip install yfinance pandas google-genai
+      - name: Run
         env:
           EMAIL_USER: ${{ secrets.EMAIL_USER }}
           EMAIL_PASS: ${{ secrets.EMAIL_PASS }}
           EMAIL_RECEIVER: ${{ secrets.EMAIL_RECEIVER }}
           GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
         run: python main.py
-
-      - name: Auto Commit
+      - name: Save Log
         uses: stefanzweifel/git-auto-commit-action@v5
         with:
-          commit_message: "Daily check: ${{ github.event.head_commit.timestamp }}"
+          commit_message: "Daily data log: ${{ github.event.head_commit.timestamp }}"
           file_pattern: 'global_investment_log.csv'
-          commit_user_name: "Asset-Sentinel-Bot"
-          commit_user_email: "actions@github.com"
