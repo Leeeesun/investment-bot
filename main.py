@@ -10,7 +10,7 @@ from email.header import Header
 from email.utils import formataddr
 from datetime import datetime
 
-# --- 1. 定投量化算法 ---
+# --- 1. 定投量化核心算法 ---
 def calculate_rsi(prices, period=14):
     delta = prices.diff()
     gain = (delta.where(delta > 0, 0)).rolling(window=period).mean()
@@ -20,42 +20,49 @@ def calculate_rsi(prices, period=14):
     return rsi.iloc[-1]
 
 def get_market_context():
-    ctx = {"VIX": 18, "USD_RATE": 7.25}
+    ctx = {"VIX": 18}
     try:
         vix_data = yf.download("^VIX", period="5d", progress=False)
         if not vix_data.empty:
+            # 兼容处理 dataframe 格式
             v_close = vix_data['Close'].iloc[:, 0] if isinstance(vix_data['Close'], pd.DataFrame) else vix_data['Close']
             ctx["VIX"] = float(v_close.dropna().iloc[-1])
-        rate_data = yf.download("USDCNY=X", period="5d", progress=False)
-        if not rate_data.empty:
-            r_close = rate_data['Close'].iloc[:, 0] if isinstance(rate_data['Close'], pd.DataFrame) else rate_data['Close']
-            ctx["USD_RATE"] = float(r_close.dropna().iloc[-1])
     except: pass
     return ctx
 
-# --- 2. AI 战略研判 (Google Gemini 1.5 Flash) ---
+# --- 2. AI 战略内参模块 (2026 旗舰版 Gemini 2.0) ---
 def get_ai_advice(vix, total_amt, results):
     api_key = os.getenv('GEMINI_API_KEY')
     if not api_key: return None
     try:
         client = genai.Client(api_key=api_key)
-        summary = f"VIX: {vix}, 总预算: {total_amt} RMB。\n"
+        summary = f"VIX恐慌度: {vix}, 今日建议总出资: {total_amt} RMB。\n详情：\n"
         for r in results:
-            summary += f"- {r['name']}: RSI {r['rsi']}, 倍数 {r['m']}x\n"
+            summary += f"- {r['name']}: RSI {r['rsi']}, 定投权重 {r['m']}x\n"
         
         prompt = f"""
-        你是全球首席策略师。请为高级行政官员分析以下量化数据，提供战略内参：
+        你是一位全球资产配置专家。请针对以下量化数据，为一位高级政务官员提供决策内参：
         {summary}
-        要求：语气专业、稳重。分析风险与确定性。
-        格式：仅输出 HTML 的 <li> 标签列表。
+        
+        要求：
+        1. 语气：睿智、稳重、专业。
+        2. 内容：结合VIX情绪和RSI超买超卖，指出目前最优的避险或进攻方案。
+        3. 格式：仅输出 HTML 的 <li> 标签列表。
         """
-        response = client.models.generate_content(model='gemini-1.5-flash', contents=prompt)
+        
+        # 尝试调用 2.0 旗舰模型
+        try:
+            response = client.models.generate_content(model='gemini-2.0-flash', contents=prompt)
+        except:
+            # 备选方案：调用 1.5 稳定版
+            response = client.models.generate_content(model='gemini-1.5-flash', contents=prompt)
+            
         return response.text
     except Exception as e:
-        print(f"AI 模块连接受阻: {e}")
+        print(f"AI 战略分析连接受阻: {e}")
         return None
 
-# --- 3. Google Finance 视觉模板 ---
+# --- 3. Google Finance 视觉系统 ---
 def send_report(title, total_rmb, results, vix, ai_advice, fallbacks):
     mail_user = os.getenv('EMAIL_USER')
     mail_pass = os.getenv('EMAIL_PASS')
@@ -64,6 +71,7 @@ def send_report(title, total_rmb, results, vix, ai_advice, fallbacks):
 
     rows_html = ""
     for r in results:
+        # Google Finance 经典红绿逻辑
         m_color = "#137333" if r['m'] >= 1.3 else ("#c5221f" if r['m'] <= 0.6 else "#3c4043")
         m_bg = "#e6f4ea" if r['m'] >= 1.3 else ("#fce8e6" if r['m'] <= 0.6 else "#f8f9fa")
         rows_html += f"""
@@ -110,19 +118,20 @@ def send_report(title, total_rmb, results, vix, ai_advice, fallbacks):
             </table>
             <div style="background:#f8f9fa; border-radius:8px; padding:24px; border:1px solid #eee;">
                 <div style="font-size:15px; color:#202124; font-weight:500; margin-bottom:12px; display:flex; align-items:center;">
-                    <span style="color:#1a73e8; margin-right:8px;">✦</span> 战略分析与执行建议
+                    <span style="color:#1a73e8; margin-right:8px; font-weight:bold;">✦</span> 战略研判建议 (2026版)
                 </div>
                 <ul style="margin:0; padding-left:20px; font-size:14px; color:#3c4043; line-height:1.8;">{advice_body}</ul>
             </div>
         </div>
         <div style="background:#f1f3f4; padding:16px 24px; text-align:center; color:#70757a; font-size:11px;">
-            哨兵系统 v4.0 (Gemini Powered) · {datetime.now().strftime('%Y-%m-%d %H:%M')}
+            Sentinel Intelligence Pro · {datetime.now().strftime('%Y-%m-%d %H:%M')}<br>
+            提示：入场前请核对场内溢价。
         </div>
     </div>"""
     
     msg = MIMEMultipart()
     msg['Subject'] = Header(title, 'utf-8')
-    msg['From'] = formataddr((str(Header('Sentinel Intelligence', 'utf-8')), mail_user))
+    msg['From'] = formataddr((str(Header('Sentinel AI', 'utf-8')), mail_user))
     msg['To'] = receiver
     msg.attach(MIMEText(html, 'html', 'utf-8'))
     
@@ -156,19 +165,23 @@ def main():
             if rsi < 35: m += 0.3
             if rsi > 65: m -= 0.3
             if ctx['VIX'] > 25: m += 0.2
+            
             m = round(max(0.4, min(m, 3.5)), 2)
             rmb = round(info['base_amount'] * m, 2)
             results.append({"name": name, "p": round(curr_p, 2), "rsi": rsi, "m": m, "rmb": rmb})
             total_all += rmb
-            if m >= 1.3 or m <= 0.6 or rsi <= 35 or rsi >= 65: alerts_triggered = True
+            if m >= 1.3 or m <= 0.6: alerts_triggered = True
         except: continue
 
     if results:
+        # 数据存档
         df = pd.DataFrame(results); df['日期'] = datetime.now().strftime("%Y-%m-%d")
         df.to_csv("global_investment_log.csv", mode='a', index=False, header=not os.path.exists("global_investment_log.csv"), encoding='utf-8-sig')
+        
+        # 发送报告 (满足条件才打扰梁县长)
         if alerts_triggered:
             ai_advice = get_ai_advice(round(ctx['VIX'], 1), round(total_all, 2), results)
-            send_report(f"Strategic Report: {datetime.now().strftime('%m/%d')}", total_all, results, round(ctx['VIX'], 1), ai_advice, ["发现调仓信号，建议执行。"])
+            send_report(f"Strategic Intelligence: {datetime.now().strftime('%m/%d')}", total_all, results, round(ctx['VIX'], 1), ai_advice, ["市场波动触发信号，建议执行定投计划。"])
 
 if __name__ == "__main__":
     main()

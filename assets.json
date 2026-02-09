@@ -24,7 +24,7 @@
         "base_amount": 100,
         "currency": "HKD"
     },
-    "COMEX黄金": {
+    "黄金": {
         "ticker": "GC=F",
         "base_amount": 100,
         "currency": "USD"

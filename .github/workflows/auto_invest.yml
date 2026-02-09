@@ -2,7 +2,7 @@ name: Global Invest Bot
 
 on:
   schedule:
-    - cron: '0 2 * * *' # 北京时间 10:00
+    - cron: '0 2 * * *' # 北京时间 10:00 运行
   workflow_dispatch:
 
 jobs:
@@ -24,8 +24,8 @@ jobs:
           EMAIL_RECEIVER: ${{ secrets.EMAIL_RECEIVER }}
           GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
         run: python main.py
-      - name: Save Log
+      - name: Auto Log
         uses: stefanzweifel/git-auto-commit-action@v5
         with:
-          commit_message: "Daily data log: ${{ github.event.head_commit.timestamp }}"
+          commit_message: "Data log updated: ${{ github.event.head_commit.timestamp }}"
           file_pattern: 'global_investment_log.csv'
