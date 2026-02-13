@@ -20,7 +20,8 @@ def calculate_rsi(prices, period=14):
         rs = gain / loss
         rsi = 100 - (100 / (1 + rs))
         return round(rsi.iloc[-1], 1)
-    except: return 50.0
+    except:
+        return 50.0
 
 def get_market_context():
     ctx = {"VIX": 18}
@@ -29,13 +30,14 @@ def get_market_context():
         if not vix_data.empty:
             p = vix_data['Close']
             ctx["VIX"] = float(p.iloc[-1, 0] if isinstance(p, pd.DataFrame) else p.iloc[-1])
-    except: pass
+    except:
+        pass
     return ctx
 
-# --- 2. 智谱 AI 战略模块 (终极加固：应对跨海网络延迟) ---
+# --- 2. 智谱 AI 战略模块 ---
 def get_ai_advice(vix, total_amt, results):
     api_key = os.getenv('ZHIPU_API_KEY')
-    if not api_key: 
+    if not api_key:
         print("❌ 错误：未设置 ZHIPU_API_KEY")
         return None
     
@@ -45,7 +47,7 @@ def get_ai_advice(vix, total_amt, results):
     summary = f"VIX: {vix}, 预算: {total_amt} RMB。\n详情："
     for r in results:
         summary += f" {r['name']}({r['m']}x);"
-    
+
     payload = {
         "model": "glm-4-flash",
         "messages": [
@@ -55,40 +57,41 @@ def get_ai_advice(vix, total_amt, results):
         "temperature": 0.2
     }
 
-    # 针对跨海网络波动的 5 次重试机制
     for attempt in range(5):
         try:
             print(f"📡 正在呼叫 AI 决策引擎 (第 {attempt+1}/5 次)...")
-            # 延长等待时间：15秒建立连接，100秒等待数据返回
             response = requests.post(url, headers=headers, json=payload, timeout=(15, 100))
             response.raise_for_status()
             res_data = response.json()
             return res_data['choices'][0]['message']['content']
         except Exception as e:
-            print(f"⚠️ 连接抖动 (Attempt {attempt+1}): {e}")
+            print(f"⚠️ 连接 AI 接口失败 (Attempt {attempt+1}): {e}")
             if attempt < 4:
-                time.sleep((attempt + 1) * 10) # 梯度增加等待时间
+                time.sleep((attempt + 1) * 10)
             else:
                 print("❌ 跨海链路严重受阻，已达重试上限。")
     return None
 
-# --- 3. 视觉模板 ---
+# --- 3. 视觉模板与发送模块 ---
 def send_report(title, total_rmb, results, vix, ai_advice):
     mail_user = os.getenv('EMAIL_USER')
     mail_pass = os.getenv('EMAIL_PASS')
     receiver = os.getenv('EMAIL_RECEIVER')
-    if not all([mail_user, mail_pass, receiver]): return
+    
+    if not all([mail_user, mail_pass, receiver]):
+        print("⚠️ 邮件环境变量配置不全，跳过发送。")
+        return
 
     rows_html = "".join([f"""
-        <tr style="border-bottom: 1px solid #dadce0;">
-            <td style="padding:16px 8px; color:#1a73e8; font-weight:500;">{r['name']}</td>
-            <td style="padding:16px 8px; text-align:right;">{r['p']}</td>
-            <td style="padding:16px 8px; text-align:right; color:#70757a;">{r['rsi']}</td>
-            <td style="padding:16px 8px; text-align:right;">
-                <span style="padding:4px 10px; border-radius:4px; background:{'#e6f4ea' if r['m']>=1.3 else '#fce8e6' if r['m']<=0.6 else '#f8f9fa'}; color:{'#137333' if r['m']>=1.3 else '#c5221f' if r['m']<=0.6 else '#3c4043'}; font-weight:600; font-size:12px;">{r['m']}x</span>
-            </td>
-            <td style="padding:16px 8px; text-align:right; color:#202124; font-weight:500;">¥{r['rmb']:,}</td>
-        </tr>""" for r in results])
+    <tr style="border-bottom: 1px solid #dadce0;">
+        <td style="padding:16px 8px; color:#1a73e8; font-weight:500;">{r['name']}</td>
+        <td style="padding:16px 8px; text-align:right;">{r['p']}</td>
+        <td style="padding:16px 8px; text-align:right; color:#70757a;">{r['rsi']}</td>
+        <td style="padding:16px 8px; text-align:right;">
+            <span style="padding:4px 10px; border-radius:4px; background:{'#e6f4ea' if r['m']>=1.3 else '#fce8e6' if r['m']<=0.6 else '#f8f9fa'}; color:{'#137333' if r['m']>=1.3 else '#c5221f' if r['m']<=0.6 else '#3c4043'}; font-weight:600; font-size:12px;">{r['m']}x</span>
+        </td>
+        <td style="padding:16px 8px; text-align:right; color:#202124; font-weight:500;">¥{r['rmb']:,}</td>
+    </tr>""" for r in results])
 
     html = f"""
     <div style="font-family:'Roboto',Arial,sans-serif; max-width:650px; margin:auto; border:1px solid #dadce0; border-radius:8px; overflow:hidden; background:#fff;">
@@ -127,18 +130,29 @@ def send_report(title, total_rmb, results, vix, ai_advice):
             Sentinel Pro 5.6 (Dual-Schedule Enhanced) · {datetime.now().strftime('%Y-%m-%d %H:%M')}
         </div>
     </div>"""
-    
-    msg = MIMEMultipart(); msg['Subject'] = Header(title, 'utf-8')
+
+    msg = MIMEMultipart()
+    msg['Subject'] = Header(title, 'utf-8')
     msg['From'] = formataddr((str(Header('Sentinel Pro', 'utf-8')), mail_user))
-    msg['To'] = receiver; msg.attach(MIMEText(html, 'html', 'utf-8'))
-    
-    with smtplib.SMTP_SSL("smtp.qq.com", 465, timeout=15) as smtp:
-        smtp.login(mail_user, mail_pass)
-        smtp.sendmail(mail_user, [receiver], msg.as_string())
+    msg['To'] = receiver
+    msg.attach(MIMEText(html, 'html', 'utf-8'))
+
+    # 修改点：改用 SMTP 587 端口并开启 STARTTLS，提高在 GitHub Actions 中的稳定性
+    try:
+        with smtplib.SMTP("smtp.qq.com", 587, timeout=20) as smtp:
+            smtp.starttls() 
+            smtp.login(mail_user, mail_pass)
+            smtp.sendmail(mail_user, [receiver], msg.as_string())
+            print("✅ 投资决策报告已成功发送至邮箱")
+    except Exception as e:
+        print(f"❌ 邮件发送失败: {e}")
 
 # --- 4. 运行引擎 ---
 def main():
-    if not os.path.exists("assets.json"): return
+    if not os.path.exists("assets.json"):
+        print("❌ 错误：找不到 assets.json 文件")
+        return
+        
     with open("assets.json", 'r', encoding='utf-8') as f:
         assets = json.load(f)
     
@@ -148,32 +162,52 @@ def main():
     for name, info in assets.items():
         try:
             data = yf.download(info['ticker'], period="2y", progress=False)
-            if data.empty: continue
+            if data.empty:
+                continue
+            
             p_data = data['Close']
             prices = p_data.iloc[:, 0] if isinstance(p_data, pd.DataFrame) else p_data
             curr_p = float(prices.iloc[-1])
+            
+            # 计算均线
             ma = [prices.rolling(w).mean().iloc[-1] for w in [20, 60, 120, 250]]
             m = 0.6
             if curr_p < ma[0]: m += 0.2
             if curr_p < ma[1]: m += 0.3
             if curr_p < ma[2]: m += 0.4
             if curr_p < ma[3]: m += 0.5
+            
             rsi_val = calculate_rsi(prices)
             if rsi_val < 35: m += 0.3
             if rsi_val > 65: m -= 0.3
             if ctx['VIX'] > 25: m += 0.2
+            
             m = round(max(0.4, min(m, 3.5)), 2)
             rmb_amt = round(info['base_amount'] * m, 2)
-            results.append({"name": name, "p": round(curr_p, 2), "rsi": rsi_val, "m": m, "rmb": rmb_amt})
+            
+            results.append({
+                "name": name, 
+                "p": round(curr_p, 2), 
+                "rsi": rsi_val, 
+                "m": m, 
+                "rmb": rmb_amt
+            })
             total_all += rmb_amt
         except Exception as e:
             print(f"Skip: {name} - {e}")
-
+            
     if results:
-        df = pd.DataFrame(results); df['日期'] = datetime.now().strftime("%Y-%m-%d")
-        df.to_csv("global_investment_log.csv", mode='a', index=False, header=not os.path.exists("global_investment_log.csv"), encoding='utf-8-sig')
+        # 保存本地日志
+        df = pd.DataFrame(results)
+        df['日期'] = datetime.now().strftime("%Y-%m-%d")
+        df.to_csv("global_investment_log.csv", mode='a', index=False, 
+                  header=not os.path.exists("global_investment_log.csv"), 
+                  encoding='utf-8-sig')
+        
+        # 获取 AI 建议并发送
         ai_res = get_ai_advice(round(ctx['VIX'], 1), round(total_all, 2), results)
-        send_report(f"Strategic Intelligence: {datetime.now().strftime('%m/%d')} 决策日报", total_all, results, round(ctx['VIX'], 1), ai_res)
+        send_report(f"Strategic Intelligence: {datetime.now().strftime('%m/%d')} 决策日报", 
+                    total_all, results, round(ctx['VIX'], 1), ai_res)
 
 if __name__ == "__main__":
     main()
