@@ -8,6 +8,8 @@ import time
 import requests
 from email.mime.text import MIMEText
 from email.mime.multipart import MIMEMultipart
+from email.mime.base import MIMEBase
+from email import encoders
 from email.header import Header
 from email.utils import formataddr
 from datetime import datetime
@@ -720,7 +722,8 @@ def get_ai_advice(macro_ctx: dict, total_amt: float, results: list) -> str | Non
 # ---------------------------------------------------------------------------
 
 def send_report(title: str, total_rmb: float, results: list,
-                macro_ctx: dict, ai_advice: str | None):
+                macro_ctx: dict, ai_advice: str | None,
+                chart_path: str | None = None):
     """
     生成 HTML 邮件报告并发送。
 
@@ -773,20 +776,54 @@ def send_report(title: str, total_rmb: float, results: list,
                 factor_parts.append(f"{k}:{prefix}{v}")
         factor_text = " | ".join(factor_parts) if factor_parts else "—"
 
+        # === 回测数据列 ===
+        bt = r.get("backtest", {})
+        win_rate = bt.get("win_rate", "-")
+        ann_ret = bt.get("annualized_ret", "-")
+        bt_max_dd = bt.get("max_drawdown_pct", 0)
+
+        # 胜率着色
+        if isinstance(win_rate, (int, float)):
+            wr_color = "#137333" if win_rate >= 60 else ("#c5221f" if win_rate < 40 else "#70757a")
+            wr_text = f"{win_rate}%"
+        else:
+            wr_color = "#70757a"
+            wr_text = "-"
+
+        # 年化收益着色
+        if isinstance(ann_ret, (int, float)):
+            ar_color = "#137333" if ann_ret > 0 else "#c5221f"
+            ar_text = f"{ann_ret:+.1f}%"
+        else:
+            ar_color = "#70757a"
+            ar_text = "-"
+
+        # 最大回撒警告 (黄色背景)
+        dd_warning = ""
+        if isinstance(bt_max_dd, (int, float)) and bt_max_dd < -15:
+            dd_warning = (
+                '<div style="background:#fff3cd; color:#856404; padding:3px 6px;'
+                ' border-radius:3px; font-size:10px; margin-top:4px;'
+                ' display:inline-block;">'
+                f'DD {bt_max_dd:.1f}% m*0.8</div>'
+            )
+
         rows_html += f"""
     <tr style="border-bottom: 1px solid #dadce0;">
-        <td style="padding:14px 8px; color:#1a73e8; font-weight:500;">{r['name']}</td>
-        <td style="padding:14px 8px; text-align:right;">{r['p']}</td>
-        <td style="padding:14px 8px; text-align:right; color:#70757a;">{r.get('rsi', '-')}</td>
-        <td style="padding:14px 8px; text-align:right; color:#70757a;">{r.get('adx', '-')}</td>
-        <td style="padding:14px 8px; text-align:right; color:{macd_color};">{macd_dir}</td>
-        <td style="padding:14px 8px; text-align:right;">
-            <span style="padding:4px 10px; border-radius:4px; background:{m_bg}; color:{m_color}; font-weight:600; font-size:12px;">{m}x</span>
+        <td style="padding:10px 6px; color:#1a73e8; font-weight:500;">{r['name']}</td>
+        <td style="padding:10px 6px; text-align:right;">{r['p']}</td>
+        <td style="padding:10px 6px; text-align:right; color:#70757a;">{r.get('rsi', '-')}</td>
+        <td style="padding:10px 6px; text-align:right; color:{macd_color};">{macd_dir}</td>
+        <td style="padding:10px 6px; text-align:right;">
+            <span style="padding:3px 8px; border-radius:4px; background:{m_bg}; color:{m_color}; font-weight:600; font-size:12px;">{m}x</span>
+            {dd_warning}
         </td>
-        <td style="padding:14px 8px; text-align:right; color:#202124; font-weight:500;">¥{r['rmb']:,.0f}</td>
+        <td style="padding:10px 6px; text-align:right; color:#202124; font-weight:500;">¥{r['rmb']:,.0f}</td>
+        <td style="padding:10px 6px; text-align:right; color:{wr_color}; font-weight:500;">{wr_text}</td>
+        <td style="padding:10px 6px; text-align:right; color:{ar_color}; font-weight:500;">{ar_text}</td>
     </tr>
     <tr style="border-bottom: 1px solid #f1f3f4;">
-        <td colspan="7" style="padding:4px 8px 12px 16px; font-size:11px; color:#9aa0a6;">
+        <td colspan="8" style="padding:3px 6px 10px 14px; font-size:11px; color:#9aa0a6;">
             因子: {factor_text}
             {f'<br>信号: {sig_text}' if sig_text else ''}
         </td>
@@ -869,10 +906,11 @@ def send_report(title: str, total_rmb: float, results: list,
                         <th align="left" style="padding:8px 6px;">资产</th>
                         <th align="right" style="padding:8px 6px;">当前价</th>
                         <th align="right" style="padding:8px 6px;">RSI</th>
-                        <th align="right" style="padding:8px 6px;">ADX</th>
                         <th align="right" style="padding:8px 6px;">MACD</th>
                         <th align="right" style="padding:8px 6px;">投入倍率</th>
                         <th align="right" style="padding:8px 6px;">预计金额</th>
+                        <th align="right" style="padding:8px 6px;">策略胜率</th>
+                        <th align="right" style="padding:8px 6px;">回测年化</th>
                     </tr>
                 </thead>
                 <tbody>{rows_html}</tbody>
@@ -899,6 +937,22 @@ def send_report(title: str, total_rmb: float, results: list,
     msg['From'] = formataddr((str(Header('Sentinel Pro', 'utf-8')), mail_user))
     msg['To'] = receiver
     msg.attach(MIMEText(html, 'html', 'utf-8'))
+
+    # --- 附加回测图表 ---
+    if chart_path and os.path.exists(chart_path):
+        try:
+            with open(chart_path, 'rb') as f:
+                img_part = MIMEBase('image', 'png')
+                img_part.set_payload(f.read())
+                encoders.encode_base64(img_part)
+                img_part.add_header(
+                    'Content-Disposition',
+                    f'attachment; filename="{os.path.basename(chart_path)}"'
+                )
+                msg.attach(img_part)
+            print("   图表已附加到邮件")
+        except Exception as e:
+            print(f"   [WARN] 图表附件失败: {e}")
 
     try:
         with smtplib.SMTP("smtp.qq.com", 587, timeout=20) as smtp:
@@ -940,6 +994,164 @@ def save_log(results: list):
         print(f"📝 日志已保存至 {log_file}")
     except Exception as e:
         print(f"⚠️ 日志保存失败: {e}")
+
+
+# ---------------------------------------------------------------------------
+#  Layer 5b: 内联回测 & 图表
+# ---------------------------------------------------------------------------
+
+def run_inline_backtest(close: pd.Series, high: pd.Series, low: pd.Series,
+                        base_amount: float = 100.0, days: int = 180,
+                        invest_freq: int = 5) -> dict:
+    """
+    对单个资产做近 N 天历史回测 (DCA 定投策略).
+
+    返回:
+      win_rate         - 策略胜率 (累计收益 > 0 的投资次数占比)
+      annualized_ret   - 年化收益率 (%)
+      max_drawdown_pct - 最大回撒 (%)
+      equity_curve     - 资金曲线 Series
+    """
+    total_len = len(close)
+    lookback_warmup = 300  # 指标计算需要的预热天数
+
+    # 如果数据不足以支撑 warmup + 回测窗口，缩小回测窗口
+    available = total_len - lookback_warmup
+    if available < 20:
+        return {"win_rate": 0, "annualized_ret": 0, "max_drawdown_pct": 0, "equity_curve": pd.Series()}
+
+    bt_days = min(days, available)
+    start_idx = total_len - bt_days
+
+    total_shares = 0.0
+    total_invested = 0.0
+    day_counter = 0
+    wins = 0
+    trades = 0
+
+    dates = []
+    equity_values = []
+
+    for i in range(start_idx, total_len):
+        curr_price = _safe_scalar(close.iloc[i])
+        date = close.index[i]
+
+        if day_counter % invest_freq == 0:
+            # 计算当日 multiplier
+            lookback_start = max(0, i - lookback_warmup - 50)
+            c_window = close.iloc[lookback_start:i + 1]
+            h_window = high.iloc[lookback_start:i + 1]
+            l_window = low.iloc[lookback_start:i + 1]
+
+            rsi_val = calculate_rsi(c_window)
+            adx_data = calculate_adx(h_window, l_window, c_window)
+            macd_data = calculate_macd(c_window)
+            atr_data = calculate_atr(h_window, l_window, c_window)
+
+            indicators = {"rsi": rsi_val, "adx": adx_data, "macd": macd_data, "atr": atr_data}
+            # 简化回测: 不含宏观因子，使用默认宏观上下文
+            default_macro = {"vix": 18.0, "us10y": 4.0, "us10y_chg_pct": 0.0,
+                             "us10y_at_1y_hi": False, "dxy": 100.0,
+                             "dxy_above_ma20": False, "dxy_trending_up": False}
+            result = compute_multiplier(curr_price, c_window, default_macro, indicators)
+            m = result["m"]
+
+            invest_amount = base_amount * m
+            shares_bought = invest_amount / curr_price
+            total_shares += shares_bought
+            total_invested += invest_amount
+            trades += 1
+
+            # 胜率计算: 该笔买入后是否最终盈利
+            # 用最后一天收盘价 vs 买入价
+            final_price = _safe_scalar(close.iloc[-1])
+            if final_price > curr_price:
+                wins += 1
+
+        day_counter += 1
+        portfolio_value = total_shares * curr_price
+        dates.append(date)
+        equity_values.append(portfolio_value)
+
+    if not equity_values or trades == 0:
+        return {"win_rate": 0, "annualized_ret": 0, "max_drawdown_pct": 0, "equity_curve": pd.Series()}
+
+    equity_curve = pd.Series(equity_values, index=dates)
+
+    # = 指标计算 =
+    win_rate = round(wins / trades * 100, 1) if trades > 0 else 0
+
+    # 年化收益: ((final / invested) ^ (252/bt_days) - 1)
+    final_value = equity_values[-1]
+    if total_invested > 0 and final_value > 0:
+        total_ret = final_value / total_invested
+        ann_factor = 252 / max(bt_days, 1)
+        annualized_ret = round((total_ret ** ann_factor - 1) * 100, 2)
+    else:
+        annualized_ret = 0
+
+    # 最大回撒
+    running_max = equity_curve.expanding().max()
+    drawdown = (equity_curve - running_max) / running_max
+    max_dd = round(drawdown.min() * 100, 2)
+
+    return {
+        "win_rate": win_rate,
+        "annualized_ret": annualized_ret,
+        "max_drawdown_pct": max_dd,
+        "equity_curve": equity_curve,
+        "trades": trades,
+        "total_invested": round(total_invested, 2),
+        "final_value": round(final_value, 2),
+    }
+
+
+def generate_equity_chart(bt_data: dict) -> str | None:
+    """
+    将所有资产的回测资金曲线绘制成 PNG 图片。
+    返回图片文件路径，失败则返回 None。
+    """
+    try:
+        import matplotlib
+        matplotlib.use('Agg')  # 无头模式
+        import matplotlib.pyplot as plt
+        import matplotlib.dates as mdates
+
+        fig, ax = plt.subplots(figsize=(10, 5))
+        fig.patch.set_facecolor('#fafafa')
+        ax.set_facecolor('#fafafa')
+
+        has_data = False
+        for name, info in bt_data.items():
+            curve = info.get("equity_curve", pd.Series())
+            if not curve.empty:
+                ax.plot(curve.index, curve.values, linewidth=1.8, label=name)
+                has_data = True
+
+        if not has_data:
+            plt.close(fig)
+            return None
+
+        ax.set_title('Sentinel Pro 6.0 - 180天策略回测资金曲线', fontsize=13, pad=12)
+        ax.set_ylabel('累计市值 ($)', fontsize=11)
+        ax.legend(fontsize=10, loc='upper left')
+        ax.grid(True, alpha=0.3)
+        ax.xaxis.set_major_formatter(mdates.DateFormatter('%m/%d'))
+        ax.xaxis.set_major_locator(mdates.MonthLocator())
+        fig.autofmt_xdate(rotation=30)
+        plt.tight_layout()
+
+        chart_path = "backtest_equity_chart.png"
+        fig.savefig(chart_path, dpi=150, bbox_inches='tight')
+        plt.close(fig)
+        print(f"   回测图表已保存: {chart_path}")
+        return chart_path
+    except ImportError:
+        print("   [WARN] matplotlib 未安装，跳过图表生成")
+        return None
+    except Exception as e:
+        print(f"   [WARN] 图表生成失败: {e}")
+        return None
 
 
 # ---------------------------------------------------------------------------
@@ -1064,7 +1276,50 @@ def main():
     print("\n🔗 Layer 3b: 相关性风控检查...")
     results = apply_risk_caps(results, corr_matrix, assets)
 
-    # 重新计算总额
+    # --- 5b. 内联 180 天回测 ---
+    print("\n📈 Layer 5b: 历史回测 (180天)...")
+    bt_chart_data = {}
+    for r in results:
+        name = r['name']
+        info = assets.get(name, {})
+        try:
+            data = yf.download(info['ticker'], period="2y", progress=False)
+            if data.empty:
+                continue
+            close_bt = _to_series(data['Close'])
+            high_bt = _to_series(data['High'])
+            low_bt = _to_series(data['Low'])
+
+            bt_result = run_inline_backtest(
+                close_bt, high_bt, low_bt,
+                base_amount=info.get('base_amount', 100), days=180
+            )
+
+            r['backtest'] = bt_result
+            bt_chart_data[name] = bt_result
+
+            wr = bt_result.get('win_rate', 0)
+            ann = bt_result.get('annualized_ret', 0)
+            mdd = bt_result.get('max_drawdown_pct', 0)
+            print(f"   {name}: 胜率={wr}% 年化={ann:+.1f}% 最大回撒={mdd:.1f}%")
+
+            # 动态风控: 回测最大回撒 > 15% → 倍率乘以 0.8
+            if mdd < -15:
+                old_m = r['m']
+                r['m'] = round(r['m'] * 0.8, 2)
+                r['rmb'] = round(info.get('base_amount', 100) * r['m'], 2)
+                r['signals'].append(
+                    f"⚠️ 回测最大回撒 {mdd:.1f}% > 15% → 倍率 {old_m}→{r['m']} (*0.8)"
+                )
+                print(f"      ⚠️ 回撒警告! m: {old_m} -> {r['m']}")
+
+        except Exception as e:
+            print(f"   [WARN] {name} 回测失败: {e}")
+
+    # 生成回测资金曲线图
+    chart_path = generate_equity_chart(bt_chart_data) if bt_chart_data else None
+
+    # 重新计算总额 (可能回测风控调整)
     total_all = sum(r["rmb"] for r in results)
     print(f"\n💰 日投总额: ¥{total_all:,.2f}")
 
@@ -1076,7 +1331,8 @@ def main():
     print("\n📧 Layer 5: 生成报告...")
     send_report(
         f"Strategic Intelligence: {datetime.now().strftime('%m/%d')} 决策日报",
-        total_all, results, macro_ctx, ai_res
+        total_all, results, macro_ctx, ai_res,
+        chart_path=chart_path
     )
     save_log(results)
 
