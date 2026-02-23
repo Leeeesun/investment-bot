@@ -1,0 +1,22 @@
+# Python cache
+__pycache__/
+*.pyc
+*.pyo
+
+# Environment & secrets
+.env
+.env.*
+
+# Data & logs
+*.csv
+*.log
+
+# Generated output
+output/
+backtest_equity_chart.png
+backtest_equity_curves.csv
+backtest_output.txt
+
+# OS files
+.DS_Store
+Thumbs.db

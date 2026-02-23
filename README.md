@@ -1,35 +1,87 @@
-# Investment Bot (Sentinel Pro) 🚀
+# Sentinel Pro 6.0
 
-![Sentinel Pro](https://img.shields.io/badge/Sentinel-Pro%205.6-blue?style=for-the-badge)
-![Status](https://img.shields.io/badge/Status-Active-success?style=for-the-badge)
+![Version](https://img.shields.io/badge/Sentinel_Pro-6.0-7c3aed?style=for-the-badge)
+![Python](https://img.shields.io/badge/Python-3.12+-3776ab?style=for-the-badge&logo=python&logoColor=white)
+![Status](https://img.shields.io/badge/Status-Active-10b981?style=for-the-badge)
 
-一个专业的全球资产量化定投工具，结合了经典量化算法与大模型策略建议，为您提供金融级的投资决策支持。
+多因子智能定投决策系统 — 融合量化分析、宏观研判与 AI 风控于一体的全球资产配置引擎。
 
-## ✨ 核心特性
+## 架构概览
 
-- **🌍 全球资产覆盖**：支持美股（S&P 500, Nasdaq）、日经、欧股、港股及黄金等多种资产的实时追踪。
-- **📊 混合量化算法**：深度集成移动平均线（MA）、相对强弱指数（RSI）及恐慌指数（VIX）的动态加权模型。
-- **🤖 AI 战略内参**：连接智谱 AI (GLM-4) 决策引擎，为每一份报告提供专业级的人工智能执行策略。
-- **📧 高级视觉报告**：提供类 Google Finance 风格的 HTML 邮件报告，包含清晰的层级设计与执行指标。
-- **📝 本地审计日志**：自动记录所有决策数据至 `global_investment_log.csv`，方便复盘与分析。
+```
+┌─────────────────────────────────────────────────────┐
+│  Layer 1   宏观上下文采集 (VIX / US10Y / DXY)        │
+├─────────────────────────────────────────────────────┤
+│  Layer 2   多因子技术指标 (RSI / ADX / MACD / ATR)   │
+├─────────────────────────────────────────────────────┤
+│  Layer 3   风控 & 资金管理                            │
+│            ├─ 相关性矩阵 (Pearson)                    │
+│            ├─ 相关性熔断 (corr > 0.85)                │
+│            └─ ATR 动态头寸控制                        │
+├─────────────────────────────────────────────────────┤
+│  Layer 4   AI 决策审核 (智谱 GLM-4 · CRO 角色)       │
+├─────────────────────────────────────────────────────┤
+│  Layer 5   报告 & 日志                               │
+│            ├─ HTML 邮件 (响应式 / 中文表头)            │
+│            ├─ 180 天内联回测 (胜率 / 年化 / 最大回撤)   │
+│            └─ 资金曲线图表附件 (matplotlib)            │
+├─────────────────────────────────────────────────────┤
+│  Layer 6   GitHub Pages 看板                         │
+│            └─ Tailwind CSS 暗色主题 Dashboard         │
+└─────────────────────────────────────────────────────┘
+```
 
-## 🧠 核心算法（Sentinel 量效模型）
+## 核心特性
 
-量化乘数 `m`（Multiplier）决定了每日定投的最终金额。其计算逻辑如下：
+### 📊 多因子量化引擎
 
-1. **基础分**：初始权重为 `0.6x`。
-2. **趋势博弈 (Trend-Following)**：
-    - 价格低于 MA20: `+0.2`
-    - 价格低于 MA60: `+0.3`
-    - 价格低于 MA120: `+0.4`
-    - 价格低于 MA250: `+0.5`
-3. **情绪指标 (Vibrancy & Fear)**：
-    - **RSI < 35**: 超卖区间，`+0.3`（增加投入）
-    - **RSI > 65**: 超买区间，`-0.3`（减少投入）
-    - **VIX > 25**: 市场波动放大，`+0.2`（抗波动加码）
-4. **约束机制**：最终乘数严格约束在 `[0.4, 3.5]` 之间，确保极端行情下的稳健性。
+倍率 `m` 由百分比权重系统动态计算，而非简单加减分：
 
-## 🛠️ 环境部署
+| 因子 | 权重占比 | 逻辑 |
+|:---|:---|:---|
+| MA 偏离度 | 10%–25% | MA20 / MA60 / MA120 / MA250 四级偏离比例 |
+| RSI | 15%–20% | 超卖 (<30) 加仓，超买 (>65) 减仓 |
+| ADX 趋势过滤 | 门控 | ADX>25 且下行趋势 → 禁止加仓 |
+| MACD 门控 | 衰减 50% | 价格低于 MA20 但动量未衰减 → 信号减半 |
+| ATR 动态头寸 | 自适应 | ATR ratio>1.5 → 按波动比例调整仓位 |
+| 宏观因子 | 修正 | 美债飙升/美元走强 → 下调非美资产倍率 |
+
+最终倍率约束在 `[0.3, 3.5]` 之间。
+
+### 🌍 宏观三维度
+
+- **VIX** — 恐慌指数，>25 触发加仓信号
+- **US 10Y** — 美债收益率，周涨幅急升 → 宏观"否决"
+- **DXY** — 美元指数，上升通道 → 非美资产下调
+
+### 🛡️ AI 风控官 (CRO)
+
+接入智谱 GLM-4-Flash，角色设定为首席风控官：
+
+- 分析 RSI/MACD 指标背离，判断"多头陷阱 (Bull Trap)"风险
+- 审核量化倍率合理性，给出具体调整建议
+- 检查跨资产联动风险和仓位集中度
+- **CRO vs 量化偏差 >0.5 → 邮件中红色警报标注**
+
+### 📈 内联历史回测
+
+每次运行自动对所有资产进行 **180 天策略回测**：
+
+- 策略胜率 (Win Rate) — 买入后至今盈利的交易占比
+- 年化收益率 — 按 252 个交易日年化
+- 最大回撤 — **DD > 15% → 倍率自动 ×0.8 + 黄色警告**
+- 资金曲线 PNG 附件随邮件发送
+
+### 🌐 GitHub Pages 看板
+
+每次 CI 运行后自动部署到 `gh-pages` 分支：
+
+- Tailwind CSS 暗色主题 + 磨砂玻璃效果
+- 响应式卡片布局（手机/平板/桌面自适应）
+- `noindex, nofollow` 防搜索引擎索引
+- 不泄露 API Key / 邮箱 / 具体金额
+
+## 快速开始
 
 ### 1. 安装依赖
 
@@ -39,41 +91,63 @@ pip install -r requirements.txt
 
 ### 2. 配置环境变量
 
-项目需要以下环境变量来启动 AI 引擎和邮件系统：
-
 | 变量名 | 说明 |
-| :--- | :--- |
-| `ZHIPU_API_KEY` | 智谱 AI API Key (用于 GLM-4 战略决策) |
-| `EMAIL_USER` | 发信邮箱账号 (支持 QQ 邮箱/SMTP) |
-| `EMAIL_PASS` | 发信邮箱授权码 |
-| `EMAIL_RECEIVER` | 报告接收地址 |
+|:---|:---|
+| `ZHIPU_API_KEY` | 智谱 AI API Key |
+| `EMAIL_USER` | 发信邮箱 (QQ 邮箱 SMTP) |
+| `EMAIL_PASS` | 邮箱授权码 |
+| `EMAIL_RECEIVER` | 报告接收邮箱 |
 
-### 3. 配置资产列表 (`assets.json`)
-
-在 `assets.json` 中定义您关注的资产及其基础定投金额：
+### 3. 配置资产 (`assets.json`)
 
 ```json
 {
-    "标普500": { "ticker": "^GSPC", "base_amount": 200, "currency": "USD" },
-    "黄金": { "ticker": "GC=F", "base_amount": 100, "currency": "USD" }
+    "标普500": { "ticker": "^GSPC", "base_amount": 100, "currency": "USD" },
+    "纳斯达克": { "ticker": "^IXIC", "base_amount": 50, "currency": "USD" },
+    "黄金":    { "ticker": "GC=F",  "base_amount": 10,  "currency": "USD" }
 }
 ```
 
-## 🚀 启动运行
-
-执行主引擎即可获取今日决策报告：
+### 4. 运行
 
 ```bash
+# 日常决策
 python main.py
+
+# 独立回测 (2年 QQQ/SPY)
+python backtest.py
 ```
 
-## 📁 文件结构
+## 文件结构
 
-- `main.py`: 核心量化引擎与执行逻辑。
-- `assets.json`: 资产库配置文件。
-- `requirements.txt`: Python 依赖清单。
-- `global_investment_log.csv`: 决策执行的历史日志。
+```
+investment-bot/
+├── main.py                     # 核心引擎 (6 层架构)
+├── backtest.py                 # 独立回测模块
+├── assets.json                 # 资产配置
+├── requirements.txt            # Python 依赖
+├── global_investment_log.csv   # 决策历史日志
+├── output/
+│   └── index.html              # GitHub Pages 看板
+├── backtest_equity_chart.png   # 回测资金曲线图
+└── .github/workflows/
+    └── auto_invest.yml         # CI: 定时运行 + gh-pages 部署
+```
+
+## CI/CD
+
+GitHub Actions 每日北京时间 **09:45** 自动运行：
+
+1. 拉取全球市场数据
+2. 多因子分析 + 回测
+3. AI 风控审核
+4. 发送邮件报告（含图表附件）
+5. 部署 Dashboard 到 gh-pages
+6. 提交日志到仓库
+
+支持 `workflow_dispatch` 手动触发。
 
 ---
+
 > [!NOTE]
 > 投资有风险，决策需谨慎。本项目仅作为量化技术研究与自动化工具，不构成任何投资建议。
