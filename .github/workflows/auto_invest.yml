@@ -10,7 +10,7 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       contents: write
-      
+
     steps:
       - name: Checkout Code
         uses: actions/checkout@v4
@@ -23,7 +23,7 @@ jobs:
       - name: Install Dependencies
         run: |
           python -m pip install --upgrade pip
-          pip install yfinance pandas requests
+          pip install yfinance pandas requests numpy matplotlib
 
       - name: Execute Script
         env:
@@ -38,3 +38,10 @@ jobs:
         with:
           commit_message: "Sentinel Insight Update: ${{ github.event.head_commit.timestamp }}"
           file_pattern: 'global_investment_log.csv'
+
+      - name: Deploy Dashboard
+        uses: peaceiris/actions-gh-pages@v3
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          publish_dir: ./output
+          publish_branch: gh-pages

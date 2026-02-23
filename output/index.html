@@ -1,0 +1,158 @@
+<!DOCTYPE html>
+<html lang="zh-CN" class="dark">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="robots" content="noindex, nofollow">
+    <title>Sentinel Pro 6.0 | 智能投资看板</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        body { font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif; }
+        .glass { background: rgba(15, 23, 42, 0.6); backdrop-filter: blur(12px); }
+    </style>
+</head>
+<body class="bg-slate-950 text-slate-200 min-h-screen">
+
+    <!-- 背景装饰 -->
+    <div class="fixed inset-0 overflow-hidden pointer-events-none">
+        <div class="absolute -top-40 -right-40 w-80 h-80 bg-indigo-500/10 rounded-full blur-3xl"></div>
+        <div class="absolute -bottom-40 -left-40 w-80 h-80 bg-emerald-500/10 rounded-full blur-3xl"></div>
+    </div>
+
+    <div class="relative max-w-6xl mx-auto px-4 py-8">
+
+        <!-- 页头 -->
+        <header class="mb-8">
+            <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+                <div>
+                    <h1 class="text-2xl sm:text-3xl font-bold text-white">
+                        Sentinel Pro
+                        <span class="text-sm font-normal text-indigo-400 ml-2">v6.0</span>
+                    </h1>
+                    <p class="text-slate-500 text-sm mt-1">多因子智能定投决策系统</p>
+                </div>
+                <div class="flex items-center gap-2 text-xs text-slate-500">
+                    <div class="w-2 h-2 bg-emerald-400 rounded-full animate-pulse"></div>
+                    最后更新: 2026-02-23 17:09
+                </div>
+            </div>
+        </header>
+
+        <!-- 宏观环境卡片 -->
+        <section class="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-8">
+            <div class="glass rounded-xl p-5 border border-slate-800">
+                <div class="text-xs text-slate-500 uppercase tracking-wider mb-1">恐慌指数 VIX</div>
+                <div class="text-3xl font-light text-orange-400">27.3</div>
+                <div class="text-xs text-orange-400 mt-1">高波动</div>
+            </div>
+            <div class="glass rounded-xl p-5 border border-slate-800">
+                <div class="text-xs text-slate-500 uppercase tracking-wider mb-1">10年美债收益率</div>
+                <div class="text-3xl font-light text-white">4.35%</div>
+                <div class="text-xs text-red-400 mt-1">
+                    +0.8% 周变化
+                </div>
+            </div>
+            <div class="glass rounded-xl p-5 border border-slate-800">
+                <div class="text-xs text-slate-500 uppercase tracking-wider mb-1">美元指数 DXY</div>
+                <div class="text-3xl font-light text-white">104.2</div>
+                <div class="text-xs text-slate-400 mt-1">↑ 上升通道</div>
+            </div>
+        </section>
+
+        <!-- 资产卡片 -->
+        <section class="mb-8">
+            <h2 class="text-lg font-semibold text-white mb-4 flex items-center gap-2">
+                <svg class="w-5 h-5 text-sky-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6"/>
+                </svg>
+                资产决策总览
+            </h2>
+            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                
+        <div class="bg-slate-800/50 backdrop-blur rounded-xl border border-emerald-500/30 p-5 hover:bg-slate-800/70 transition-all">
+            <div class="flex items-center justify-between mb-3">
+                <h3 class="text-lg font-semibold text-white">QQQ</h3>
+                <span class="px-3 py-1 rounded-full text-sm font-bold ring-1 bg-emerald-500/20 text-emerald-400 ring-emerald-500/30">1.6x</span>
+            </div>
+            <div class="text-2xl font-light text-white mb-3">$540.21</div>
+            <div class="grid grid-cols-2 gap-2 text-sm">
+                <div class="bg-slate-900/50 rounded-lg p-2">
+                    <div class="text-slate-500 text-xs">RSI</div>
+                    <div class="text-white font-medium">42.3</div>
+                </div>
+                <div class="bg-slate-900/50 rounded-lg p-2">
+                    <div class="text-slate-500 text-xs">MACD 动量</div>
+                    <div class="text-emerald-400 font-medium">↑ 衰减</div>
+                </div>
+                <div class="bg-slate-900/50 rounded-lg p-2">
+                    <div class="text-slate-500 text-xs">策略胜率</div>
+                    <div class="text-white font-medium">68.3%</div>
+                </div>
+                <div class="bg-slate-900/50 rounded-lg p-2">
+                    <div class="text-slate-500 text-xs">回测年化</div>
+                    <div class="text-emerald-400 font-medium">+12.5%</div>
+                </div>
+            </div>
+            
+            <ul class="mt-2 text-xs text-slate-500 space-y-0.5 list-disc list-inside"><li class="truncate">MA60 below 5%</li><li class="truncate">RSI oversold</li></ul>
+        </div>
+        <div class="bg-slate-800/50 backdrop-blur rounded-xl border border-red-500/30 p-5 hover:bg-slate-800/70 transition-all">
+            <div class="flex items-center justify-between mb-3">
+                <h3 class="text-lg font-semibold text-white">SPY</h3>
+                <span class="px-3 py-1 rounded-full text-sm font-bold ring-1 bg-red-500/20 text-red-400 ring-red-500/30">0.4x</span>
+            </div>
+            <div class="text-2xl font-light text-white mb-3">$610.5</div>
+            <div class="grid grid-cols-2 gap-2 text-sm">
+                <div class="bg-slate-900/50 rounded-lg p-2">
+                    <div class="text-slate-500 text-xs">RSI</div>
+                    <div class="text-white font-medium">72.1</div>
+                </div>
+                <div class="bg-slate-900/50 rounded-lg p-2">
+                    <div class="text-slate-500 text-xs">MACD 动量</div>
+                    <div class="text-red-400 font-medium">↓ 加速</div>
+                </div>
+                <div class="bg-slate-900/50 rounded-lg p-2">
+                    <div class="text-slate-500 text-xs">策略胜率</div>
+                    <div class="text-white font-medium">45.0%</div>
+                </div>
+                <div class="bg-slate-900/50 rounded-lg p-2">
+                    <div class="text-slate-500 text-xs">回测年化</div>
+                    <div class="text-red-400 font-medium">-3.2%</div>
+                </div>
+            </div>
+            
+            <div class="mt-2 px-2 py-1 bg-amber-500/20 text-amber-400 rounded text-xs">
+                ⚠ 最大回撒 -18.5% · 倍率已自动 *0.8
+            </div>
+            
+        </div>
+            </div>
+        </section>
+
+        <!-- AI 建议 -->
+        <section class="mb-8">
+            
+        <div class="bg-slate-800/50 backdrop-blur rounded-xl border border-indigo-500/30 p-6">
+            <div class="flex items-center gap-2 mb-4">
+                <div class="w-8 h-8 bg-indigo-500/20 rounded-lg flex items-center justify-center">
+                    <svg class="w-5 h-5 text-indigo-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z"/>
+                    </svg>
+                </div>
+                <h2 class="text-lg font-semibold text-white">首席风控官建议 (AI CRO)</h2>
+            </div>
+            <ul class="space-y-2 text-sm text-slate-300 leading-relaxed list-disc list-inside">
+                <li>QQQ RSI=42 near oversold, Bull Trap risk: Low.</li><li>SPY overbought, reduce.</li>
+            </ul>
+        </div>
+        </section>
+
+        <!-- 页脚 -->
+        <footer class="text-center text-xs text-slate-600 py-6 border-t border-slate-800">
+            Sentinel Pro 6.0 &middot; Multi-Factor Enhanced &middot; 2026-02-23 17:09
+            <br>Private Dashboard &mdash; Do Not Share
+        </footer>
+
+    </div>
+</body>
+</html>
