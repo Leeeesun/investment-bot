@@ -1,32 +1,32 @@
 {
     "标普500": {
         "ticker": "^GSPC",
-        "base_amount": 200,
+        "base_amount": 100,
         "currency": "USD"
     },
     "纳斯达克": {
         "ticker": "^IXIC",
-        "base_amount": 200,
+        "base_amount": 50,
         "currency": "USD"
     },
     "日经225": {
         "ticker": "^N225",
-        "base_amount": 100,
+        "base_amount": 30,
         "currency": "JPY"
     },
     "德国DAX": {
         "ticker": "^GDAXI",
-        "base_amount": 100,
+        "base_amount": 30,
         "currency": "EUR"
     },
     "恒生指数": {
         "ticker": "^HSI",
-        "base_amount": 100,
+        "base_amount": 50,
         "currency": "HKD"
     },
     "黄金": {
         "ticker": "GC=F",
-        "base_amount": 100,
+        "base_amount": 10,
         "currency": "USD"
     }
 }
