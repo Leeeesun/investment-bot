@@ -1,3 +1,4 @@
+import re
 import yfinance as yf
 import pandas as pd
 import numpy as np
@@ -688,7 +689,8 @@ def get_ai_advice(macro_ctx: dict, total_amt: float, results: list) -> str | Non
         "- 请给出 3-5 条简练的执行建议。\n"
         "- 每条建议必须包含：具体的逻辑推导依据；"
         "如涉及背离，明确注明'Bull Trap 风险: 高/中/低'；"
-        "建议的具体行动（持有/加仓/减仓/观望）。"
+        "建议的具体行动（持有/加仓/减仓/观望）。\n"
+        "- 请务必使用流利、专业的中文（简体）来输出你的投资策略和风控建议。"
     )
 
     payload = {
@@ -1156,53 +1158,37 @@ def generate_equity_chart(bt_data: dict) -> str | None:
 def generate_dashboard(results: list, macro_ctx: dict,
                        ai_advice: str | None = None) -> str:
     """
-    生成 Tailwind CSS 响应式看板 HTML 并写入 ./output/index.html。
-
-    隐私保护:
-      - noindex/nofollow 阻止搜索引擎索引
-      - 不泄露 API Key、邮箱地址、具体账户金额
-      - 倍率用原始数值，金额用百分比形式展示
+    生成顶级 SaaS 风格的 Bento Box 响应式看板。
     """
     now_str = datetime.now().strftime('%Y-%m-%d %H:%M')
     vix = macro_ctx.get('vix', 18.0)
     us10y = macro_ctx.get('us10y', 4.0)
     us10y_chg = macro_ctx.get('us10y_chg_pct', 0.0)
     dxy = macro_ctx.get('dxy', 100.0)
-    dxy_trend = '↑ 上升通道' if macro_ctx.get('dxy_trending_up') else '→ 中性'
+    dxy_trend = '↑ 上升趋势' if macro_ctx.get('dxy_trending_up') else '中性'
 
-    # --- VIX 状态 ---
-    if vix > 30:
-        vix_label, vix_cls = '极度恐慌', 'text-red-400'
-    elif vix > 25:
-        vix_label, vix_cls = '高波动', 'text-orange-400'
-    elif vix > 20:
-        vix_label, vix_cls = '警惕', 'text-yellow-400'
-    else:
-        vix_label, vix_cls = '平静', 'text-emerald-400'
+    # VIX 状态逻辑保持
+    if vix > 30: vix_label, vix_color = '极度恐慌', 'var(--danger)'
+    elif vix > 25: vix_label, vix_color = '高波动', 'var(--warning)'
+    elif vix > 20: vix_label, vix_color = '警惕', 'var(--warning)'
+    else: vix_label, vix_color = '平静', 'var(--success)'
 
-    # --- 资产卡片 ---
-    cards_html = ""
+    us10y_color = 'var(--danger)' if us10y_chg > 0 else 'var(--success)'
+    us10y_sign = '+' if us10y_chg > 0 else ''
+
+    # === 资产卡片增强版 ===
+    asset_cards = ''
     for r in results:
         m = r['m']
-        # 倍率颜色
-        if m >= 1.5:
-            m_badge = 'bg-emerald-500/20 text-emerald-400 ring-emerald-500/30'
-            card_border = 'border-emerald-500/30'
-        elif m >= 1.0:
-            m_badge = 'bg-sky-500/20 text-sky-400 ring-sky-500/30'
-            card_border = 'border-sky-500/30'
-        elif m >= 0.5:
-            m_badge = 'bg-slate-500/20 text-slate-300 ring-slate-500/30'
-            card_border = 'border-slate-500/30'
-        else:
-            m_badge = 'bg-red-500/20 text-red-400 ring-red-500/30'
-            card_border = 'border-red-500/30'
+        if m >= 1.5: m_cls = 'badge-green'
+        elif m >= 1.0: m_cls = 'badge-blue'
+        elif m >= 0.5: m_cls = 'badge-muted'
+        else: m_cls = 'badge-red'
 
         rsi = r.get('rsi', '-')
-        macd_dir = '↑ 衰减' if r.get('hist_shrinking', False) else '↓ 加速'
-        macd_cls = 'text-emerald-400' if r.get('hist_shrinking', False) else 'text-red-400'
+        macd_dir = '↑ 动量衰减' if r.get('hist_shrinking', False) else '↓ 动量加速'
+        macd_cls = 'val-up' if r.get('hist_shrinking', False) else 'val-down'
 
-        # 回测数据
         bt = r.get('backtest', {})
         wr = bt.get('win_rate', '-')
         ann = bt.get('annualized_ret', '-')
@@ -1210,176 +1196,317 @@ def generate_dashboard(results: list, macro_ctx: dict,
 
         wr_text = f'{wr}%' if isinstance(wr, (int, float)) else '-'
         ann_text = f'{ann:+.1f}%' if isinstance(ann, (int, float)) else '-'
-        ann_cls = 'text-emerald-400' if isinstance(ann, (int, float)) and ann > 0 else 'text-red-400'
+        ann_cls = 'val-up' if isinstance(ann, (int, float)) and ann > 0 else 'val-down'
 
-        # 回撒警告
         dd_alert = ''
         if isinstance(mdd, (int, float)) and mdd < -15:
-            dd_alert = f"""
-            <div class="mt-2 px-2 py-1 bg-amber-500/20 text-amber-400 rounded text-xs">
-                ⚠ 最大回撒 {mdd:.1f}% · 倍率已自动 *0.8
-            </div>"""
+            dd_alert = f'<div class="dd-warn">⚠ 回撤 {mdd:.1f}% · 倍率已 ×0.8</div>'
 
-        # 信号摘要
+        # 将信号转换为 Tag
         signals = r.get('signals', [])
         sig_html = ''
         if signals:
-            sig_items = ''.join(f'<li class="truncate">{s}</li>' for s in signals[:3])
-            sig_html = f'<ul class="mt-2 text-xs text-slate-500 space-y-0.5 list-disc list-inside">{sig_items}</ul>'
+            tags = ''.join(f'<span class="sig-tag">{s}</span>' for s in signals[:3])
+            sig_html = f'<div class="sig-container">{tags}</div>'
 
-        cards_html += f"""
-        <div class="bg-slate-800/50 backdrop-blur rounded-xl border {card_border} p-5 hover:bg-slate-800/70 transition-all">
-            <div class="flex items-center justify-between mb-3">
-                <h3 class="text-lg font-semibold text-white">{r['name']}</h3>
-                <span class="px-3 py-1 rounded-full text-sm font-bold ring-1 {m_badge}">{m}x</span>
+        asset_cards += f"""
+        <div class="card asset-card">
+            <div class="asset-top">
+                <div class="asset-id">
+                    <span class="asset-name">{r['name']}</span>
+                    <span class="badge {m_cls}">{m}x</span>
+                </div>
+                <div class="asset-price">${r['p']}</div>
             </div>
-            <div class="text-2xl font-light text-white mb-3">${r['p']}</div>
-            <div class="grid grid-cols-2 gap-2 text-sm">
-                <div class="bg-slate-900/50 rounded-lg p-2">
-                    <div class="text-slate-500 text-xs">RSI</div>
-                    <div class="text-white font-medium">{rsi}</div>
+            
+            <div class="metrics-grid">
+                <div class="metric">
+                    <span class="metric-label">RSI 指标</span>
+                    <span class="metric-value">{rsi}</span>
                 </div>
-                <div class="bg-slate-900/50 rounded-lg p-2">
-                    <div class="text-slate-500 text-xs">MACD 动量</div>
-                    <div class="{macd_cls} font-medium">{macd_dir}</div>
+                <div class="metric">
+                    <span class="metric-label">MACD 动量</span>
+                    <span class="metric-value {macd_cls}">{macd_dir}</span>
                 </div>
-                <div class="bg-slate-900/50 rounded-lg p-2">
-                    <div class="text-slate-500 text-xs">策略胜率</div>
-                    <div class="text-white font-medium">{wr_text}</div>
+                <div class="metric">
+                    <span class="metric-label">策略胜率</span>
+                    <span class="metric-value">{wr_text}</span>
                 </div>
-                <div class="bg-slate-900/50 rounded-lg p-2">
-                    <div class="text-slate-500 text-xs">回测年化</div>
-                    <div class="{ann_cls} font-medium">{ann_text}</div>
+                <div class="metric">
+                    <span class="metric-label">回测年化</span>
+                    <span class="metric-value {ann_cls}">{ann_text}</span>
                 </div>
             </div>
             {dd_alert}
             {sig_html}
         </div>"""
 
-    # --- AI 建议区 ---
-    ai_section = ""
+    # AI Section 保持逻辑，更新样式
+    ai_section = ''
     if ai_advice:
-        # 清理 markdown 标记
-        clean_advice = ai_advice.replace('```markdown', '').replace('```', '')
-        # 保持 <li> 标签，其余用 <br> 换行
+        clean = ai_advice.replace('```markdown', '').replace('```', '')
+        import re
+        def _add_dot(m):
+            text = m.group(1)
+            dot_cls = 'dot-green'
+            if any(k in text for k in ['下调', '减', '降', '警', '风险', '高位', 'Low']): dot_cls = 'dot-red'
+            elif any(k in text for k in ['维持', '观望', '中性', '关注', 'Neutral']): dot_cls = 'dot-yellow'
+            return f'<li><span class="dot {dot_cls}"></span>{text}</li>'
+        clean = re.sub(r'<li>(.*?)</li>', _add_dot, clean, flags=re.DOTALL)
+
         ai_section = f"""
-        <div class="bg-slate-800/50 backdrop-blur rounded-xl border border-indigo-500/30 p-6">
-            <div class="flex items-center gap-2 mb-4">
-                <div class="w-8 h-8 bg-indigo-500/20 rounded-lg flex items-center justify-center">
-                    <svg class="w-5 h-5 text-indigo-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z"/>
-                    </svg>
-                </div>
-                <h2 class="text-lg font-semibold text-white">首席风控官建议 (AI CRO)</h2>
+        <div class="card ai-card">
+            <div class="section-title">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="var(--accent)" stroke-width="2">
+                    <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>
+                </svg>
+                AI 首席风控官 (CRO)
             </div>
-            <ul class="space-y-2 text-sm text-slate-300 leading-relaxed list-disc list-inside">
-                {clean_advice}
+            <ul class="ai-list">
+                {clean}
             </ul>
         </div>"""
     else:
-        ai_section = """
-        <div class="bg-slate-800/50 backdrop-blur rounded-xl border border-slate-700 p-6 text-center">
-            <p class="text-slate-500">风控引擎同步中，请参考量化指标执行。</p>
-        </div>"""
+        ai_section = '<div class="card ai-card text-muted" style="text-align:center;">风控引擎同步中...</div>'
 
-    # --- 完整 HTML ---
     html = f"""<!DOCTYPE html>
-<html lang="zh-CN" class="dark">
+<html lang="zh-CN">
 <head>
-    <meta charset="utf-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <meta name="robots" content="noindex, nofollow">
-    <title>Sentinel Pro 6.0 | 智能投资看板</title>
-    <script src="https://cdn.tailwindcss.com"></script>
-    <style>
-        body {{ font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif; }}
-        .glass {{ background: rgba(15, 23, 42, 0.6); backdrop-filter: blur(12px); }}
-    </style>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Sentinel Pro 6.0 | 智能投资看板</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+:root {{
+    --bg-color:     #f7f9fa;
+    --card-bg:      #ffffff;
+    --text-main:    #111827;
+    --text-muted:   #6b7280;
+    --border-color: rgba(0,0,0,0.06);
+    --accent:       #6366f1;
+    --success:      #10b981;
+    --warning:      #f59e0b;
+    --danger:       #ef4444;
+    --nav-bg:       rgba(247, 249, 250, 0.8);
+    --shadow:       0 4px 24px rgba(0,0,0,0.04);
+    --badge-green:  #10b981;
+    --badge-blue:   #3b82f6;
+    --badge-red:    #ef4444;
+}}
+
+.dark-mode {{
+    --bg-color:     #0d1117;
+    --card-bg:      #161b22;
+    --text-main:    #e6edf3;
+    --text-muted:   #8b949e;
+    --border-color: rgba(255,255,255,0.08);
+    --nav-bg:       rgba(13, 17, 23, 0.8);
+    --shadow:       0 4px 24px rgba(0,0,0,0.2);
+}}
+
+* {{ box-sizing: border-box; margin: 0; padding: 0; }}
+
+body {{
+    font-family: 'Inter', -apple-system, system-ui, sans-serif;
+    background: var(--bg-color);
+    color: var(--text-main);
+    transition: background 0.3s, color 0.3s;
+    -webkit-font-smoothing: antialiased;
+    padding-bottom: 80px;
+}}
+
+/* Header & Nav */
+.nav {{
+    position: sticky;
+    top: 0;
+    z-index: 1000;
+    background: var(--nav-bg);
+    backdrop-filter: blur(12px);
+    border-bottom: 1px solid var(--border-color);
+    padding: 12px 24px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}}
+
+.brand {{ font-weight: 700; font-size: 18px; letter-spacing: -0.5px; }}
+.brand span {{ color: var(--accent); font-size: 14px; margin-left: 4px; }}
+.nav-meta {{ display: flex; align-items: center; gap: 16px; font-size: 12px; color: var(--text-muted); }}
+
+.theme-toggle {{
+    background: none; border: 1px solid var(--border-color); border-radius: 12px;
+    width: 40px; height: 40px; cursor: pointer; display: flex; align-items: center; justify-content: center;
+    font-size: 18px; transition: all 0.2s;
+}}
+.theme-toggle:hover {{ background: var(--border-color); }}
+
+/* Bento Layout */
+.container {{ max-width: 1200px; margin: 0 auto; padding: 32px 24px; }}
+.bento-grid {{ display: grid; gap: 20px; }}
+
+.card {{
+    background: var(--card-bg);
+    border: 1px solid var(--border-color);
+    border-radius: 20px;
+    padding: 24px;
+    box-shadow: var(--shadow);
+    transition: transform 0.2s;
+}}
+.card:hover {{ border-color: var(--accent); }}
+
+/* Macro Row */
+.macro-grid {{ grid-template-columns: repeat(3, 1fr); }}
+
+.macro-label {{
+    font-size: 12px; font-weight: 500; color: var(--text-muted);
+    text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 4px;
+}}
+.macro-value {{
+    font-size: 28px; font-weight: 700; letter-spacing: -1px; margin: 8px 0;
+}}
+.macro-sub {{ font-size: 12px; font-weight: 500; }}
+
+/* Asset Grid */
+.asset-grid {{ grid-template-columns: repeat(auto-fit, minmax(340px, 1fr)); }}
+
+.asset-top {{ display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; }}
+.asset-id {{ display: flex; align-items: center; gap: 8px; }}
+.asset-name {{ font-size: 16px; font-weight: 600; }}
+.asset-price {{ font-size: 28px; font-weight: 700; letter-spacing: -1px; }}
+
+.badge {{
+    font-size: 11px; font-weight: 700; padding: 4px 10px; border-radius: 8px;
+    text-transform: uppercase;
+}}
+.badge-green {{ background: rgba(16,185,129,0.1); color: var(--success); }}
+.badge-blue  {{ background: rgba(59,130,246,0.1); color: var(--badge-blue); }}
+.badge-red   {{ background: rgba(239,68,68,0.1); color: var(--danger); }}
+.badge-muted {{ background: var(--border-color); color: var(--text-muted); }}
+
+.metrics-grid {{
+    display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 20px;
+}}
+.metric {{ background: var(--bg-color); padding: 16px; border-radius: 16px; }}
+.metric-label {{
+    display: block; font-size: 11px; color: var(--text-muted);
+    text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 4px;
+}}
+.metric-value {{ font-size: 15px; font-weight: 600; }}
+
+.val-up {{ color: var(--success); }}
+.val-down {{ color: var(--danger); }}
+
+.dd-warn {{
+    padding: 10px 14px; background: rgba(245,158,11,0.1); color: var(--warning);
+    border-radius: 12px; font-size: 12px; font-weight: 600; margin-bottom: 16px;
+}}
+
+/* Signal Tags */
+.sig-container {{ display: flex; flex-wrap: wrap; gap: 6px; }}
+.sig-tag {{
+    background: var(--bg-color); color: var(--text-muted); font-size: 11px;
+    font-weight: 500; padding: 4px 10px; border-radius: 10px; border: 1px solid var(--border-color);
+}}
+
+/* AI Section */
+.ai-card {{ margin-top: 12px; }}
+.section-title {{
+    display: flex; align-items: center; gap: 8px; font-size: 14px; font-weight: 600;
+    margin-bottom: 20px; color: var(--accent);
+}}
+.ai-list {{ list-style: none; }}
+.ai-list li {{
+    display: flex; gap: 12px; padding: 12px 0; border-bottom: 1px solid var(--border-color);
+    font-size: 14px; line-height: 1.6;
+}}
+.ai-list li:last-child {{ border-bottom: none; }}
+.dot {{ width: 8px; height: 8px; border-radius: 50%; margin-top: 8px; flex-shrink: 0; }}
+.dot-green {{ background: var(--success); }}
+.dot-yellow {{ background: var(--warning); }}
+.dot-red {{ background: var(--danger); }}
+
+@media (max-width: 768px) {{
+    .macro-grid {{ grid-template-columns: 1fr; }}
+    .macro-value {{ font-size: 24px; }}
+    .asset-price {{ font-size: 24px; }}
+}}
+</style>
 </head>
-<body class="bg-slate-950 text-slate-200 min-h-screen">
+<body>
 
-    <!-- 背景装饰 -->
-    <div class="fixed inset-0 overflow-hidden pointer-events-none">
-        <div class="absolute -top-40 -right-40 w-80 h-80 bg-indigo-500/10 rounded-full blur-3xl"></div>
-        <div class="absolute -bottom-40 -left-40 w-80 h-80 bg-emerald-500/10 rounded-full blur-3xl"></div>
+<nav class="nav">
+    <div class="brand">Sentinel Pro <span>v6.0</span></div>
+    <div class="nav-meta">
+        <span>{now_str}</span>
+        <button class="theme-toggle" id="themeBtn">☀️</button>
     </div>
+</nav>
 
-    <div class="relative max-w-6xl mx-auto px-4 py-8">
-
-        <!-- 页头 -->
-        <header class="mb-8">
-            <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
-                <div>
-                    <h1 class="text-2xl sm:text-3xl font-bold text-white">
-                        Sentinel Pro
-                        <span class="text-sm font-normal text-indigo-400 ml-2">v6.0</span>
-                    </h1>
-                    <p class="text-slate-500 text-sm mt-1">多因子智能定投决策系统</p>
-                </div>
-                <div class="flex items-center gap-2 text-xs text-slate-500">
-                    <div class="w-2 h-2 bg-emerald-400 rounded-full animate-pulse"></div>
-                    最后更新: {now_str}
-                </div>
+<main class="container">
+    <div class="bento-grid">
+        <!-- Macro Indicators -->
+        <section class="bento-grid macro-grid">
+            <div class="card">
+                <div class="macro-label">恐慌指数 (VIX)</div>
+                <div class="macro-value" style="color:{vix_color}">{vix:.1f}</div>
+                <div class="macro-sub" style="color:{vix_color}">{vix_label}</div>
             </div>
-        </header>
-
-        <!-- 宏观环境卡片 -->
-        <section class="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-8">
-            <div class="glass rounded-xl p-5 border border-slate-800">
-                <div class="text-xs text-slate-500 uppercase tracking-wider mb-1">恐慌指数 VIX</div>
-                <div class="text-3xl font-light {vix_cls}">{vix:.1f}</div>
-                <div class="text-xs {vix_cls} mt-1">{vix_label}</div>
+            <div class="card">
+                <div class="macro-label">美国10年期国债收益率</div>
+                <div class="macro-value">{us10y:.2f}%</div>
+                <div class="macro-sub" style="color:{us10y_color}">{us10y_sign}{us10y_chg:.1f}% 周变化</div>
             </div>
-            <div class="glass rounded-xl p-5 border border-slate-800">
-                <div class="text-xs text-slate-500 uppercase tracking-wider mb-1">10年美债收益率</div>
-                <div class="text-3xl font-light text-white">{us10y:.2f}%</div>
-                <div class="text-xs {'text-red-400' if us10y_chg > 0 else 'text-emerald-400'} mt-1">
-                    {'+'if us10y_chg > 0 else ''}{us10y_chg:.1f}% 周变化
-                </div>
-            </div>
-            <div class="glass rounded-xl p-5 border border-slate-800">
-                <div class="text-xs text-slate-500 uppercase tracking-wider mb-1">美元指数 DXY</div>
-                <div class="text-3xl font-light text-white">{dxy:.1f}</div>
-                <div class="text-xs text-slate-400 mt-1">{dxy_trend}</div>
+            <div class="card">
+                <div class="macro-label">美元指数 (DXY)</div>
+                <div class="macro-value">{dxy:.1f}</div>
+                <div class="macro-sub text-muted">{dxy_trend}</div>
             </div>
         </section>
 
-        <!-- 资产卡片 -->
-        <section class="mb-8">
-            <h2 class="text-lg font-semibold text-white mb-4 flex items-center gap-2">
-                <svg class="w-5 h-5 text-sky-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6"/>
-                </svg>
-                资产决策总览
-            </h2>
-            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                {cards_html}
-            </div>
+        <!-- Insights Grid -->
+        <section class="bento-grid asset-grid">
+            {asset_cards}
         </section>
 
-        <!-- AI 建议 -->
-        <section class="mb-8">
+        <!-- AI Advice -->
+        <section>
             {ai_section}
         </section>
-
-        <!-- 页脚 -->
-        <footer class="text-center text-xs text-slate-600 py-6 border-t border-slate-800">
-            Sentinel Pro 6.0 &middot; Multi-Factor Enhanced &middot; {now_str}
-            <br>Private Dashboard &mdash; Do Not Share
-        </footer>
-
     </div>
+</main>
+
+<script>
+(function() {{
+    const btn = document.getElementById('themeBtn');
+    const root = document.body;
+    const key = 'sentinel-theme';
+    const apply = (dark) => {{
+        root.classList.toggle('dark-mode', dark);
+        btn.textContent = dark ? '🌙' : '☀️';
+    }};
+    const cur = localStorage.getItem(key) === 'dark' || 
+                (!localStorage.getItem(key) && window.matchMedia('(prefers-color-scheme: dark)').matches);
+    apply(cur);
+    btn.onclick = () => {{
+        const isDark = !root.classList.contains('dark-mode');
+        apply(isDark);
+        localStorage.setItem(key, isDark ? 'dark' : 'light');
+    }};
+}})();
+</script>
 </body>
 </html>"""
 
-    # --- 写入文件 ---
     output_dir = "output"
     os.makedirs(output_dir, exist_ok=True)
     output_path = os.path.join(output_dir, "index.html")
     with open(output_path, 'w', encoding='utf-8') as f:
         f.write(html)
-    print(f"   Dashboard 已生成: {output_path}")
     return output_path
+
+
+
 
 
 # ---------------------------------------------------------------------------
