@@ -689,7 +689,11 @@ def get_ai_advice(macro_ctx: dict, total_amt: float, results: list) -> str | Non
         "- 请给出 3-5 条简练的执行建议。\n"
         "- 每条建议必须包含：具体的逻辑推导依据；"
         "如涉及背离，明确注明'Bull Trap 风险: 高/中/低'；"
-        "建议的具体行动（持有/加仓/减仓/观望）。\n"
+        "建议的具体行动（持有/加仓/减仓/观望）。\n\n"
+        "### 🧠 重要数据解读规则：\n"
+        "1. 当你看到指标带有 '🟢' 或标注 '(看多)' 时，代表量化模型认为这是利好/加仓信号（例如：空头动能衰竭表示下跌动能由于买盘介入正在消失）。请顺应这一量化信号进行推导，不要将其误判为卖出信号。\n"
+        "2. 当你看到指标带有 '🔴' 或标注 '(看空)' 时，代表这是利空/减仓/观望信号。\n"
+        "3. 即使你认为市场长期看淡，也必须承认并解释短期量化信号的转向。\n\n"
         "- 请务必使用流利、专业的中文（简体）来输出你的投资策略和风控建议。"
     )
 
@@ -1186,8 +1190,20 @@ def generate_dashboard(results: list, macro_ctx: dict,
         else: m_cls = 'badge-red'
 
         rsi = r.get('rsi', '-')
-        macd_dir = '↑ 动量衰减' if r.get('hist_shrinking', False) else '↓ 动量加速'
-        macd_cls = 'val-up' if r.get('hist_shrinking', False) else 'val-down'
+        
+        # 精确化 MACD 状态描述 (Layer 2.5)
+        hist = r.get('macd_hist', 0)
+        shrinking = r.get('hist_shrinking', False)
+        if shrinking:
+            if hist < 0:
+                macd_dir, macd_cls = '🟢 空头动能衰竭 (看多)', 'val-up'
+            else:
+                macd_dir, macd_cls = '🔴 多头动能衰竭 (看空)', 'val-down'
+        else:
+            if hist < 0:
+                macd_dir, macd_cls = '🔴 空头动能加速 (看空)', 'val-down'
+            else:
+                macd_dir, macd_cls = '🟢 多头动能加速 (看多)', 'val-up'
 
         bt = r.get('backtest', {})
         wr = bt.get('win_rate', '-')
