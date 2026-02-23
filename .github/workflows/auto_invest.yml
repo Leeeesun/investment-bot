@@ -2,8 +2,7 @@ name: Global Invest Bot
 
 on:
   schedule:
-    - cron: '45 1 * * *' # 北京时间 09:45 运行（避开整点高峰）
-    - cron: '50 6 * * *'  # 第二次运行：北京时间 14:50 (港股/日经接近收盘，决策当日动作)
+    - cron: '35 1 * * *' # 北京时间 09:45 运行（避开整点高峰）
   workflow_dispatch:      # 允许您在 GitHub 网页上手动点击触发
 
 jobs:
