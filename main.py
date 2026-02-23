@@ -386,7 +386,7 @@ def compute_multiplier(curr_price: float, close_prices: pd.Series,
             deviation = (ma_val - curr_price) / ma_val  # 偏离比例
             contribution = mw * (1 + deviation)
             ma_contribution += contribution
-            signals.append(f"📉 价格低于 MA{w} ({deviation:.1%})")
+            signals.append(f"价格低于 MA{w} ({deviation:.1%})")
         elif not pd.isna(ma_val) and curr_price > ma_val * 1.05:
             # 价格显著高于均线，适当减权
             ma_contribution -= mw * 0.3
@@ -400,16 +400,16 @@ def compute_multiplier(curr_price: float, close_prices: pd.Series,
     rsi_contribution = 0.0
     if rsi < 30:
         rsi_contribution = 0.20
-        signals.append(f"🔵 RSI={rsi} 严重超卖")
+        signals.append(f"RSI={rsi} 严重超卖")
     elif rsi < 35:
         rsi_contribution = 0.15
-        signals.append(f"🔵 RSI={rsi} 超卖")
+        signals.append(f"RSI={rsi} 超卖")
     elif rsi > 70:
         rsi_contribution = -0.25
-        signals.append(f"🔴 RSI={rsi} 超买")
+        signals.append(f"RSI={rsi} 超买")
     elif rsi > 65:
         rsi_contribution = -0.15
-        signals.append(f"🟡 RSI={rsi} 偏高")
+        signals.append(f"RSI={rsi} 偏高")
     weight += rsi_contribution
     factors["rsi"] = round(rsi_contribution, 3)
 
@@ -419,10 +419,10 @@ def compute_multiplier(curr_price: float, close_prices: pd.Series,
     vix_contribution = 0.0
     if vix > 30:
         vix_contribution = 0.15
-        signals.append(f"😱 VIX={vix:.1f} 极度恐慌")
+        signals.append(f"VIX={vix:.1f} 极度恐慌")
     elif vix > 25:
         vix_contribution = 0.10 * (vix - 25) / 25  # 随 VIX 非线性放大
-        signals.append(f"😰 VIX={vix:.1f} 高恐慌")
+        signals.append(f"VIX={vix:.1f} 高恐慌")
     weight += vix_contribution
     factors["vix"] = round(vix_contribution, 3)
 
@@ -434,10 +434,10 @@ def compute_multiplier(curr_price: float, close_prices: pd.Series,
         # 强下行趋势：无论 RSI 多超卖，都不加仓
         weight = min(weight, 0.0)
         adx_contribution = -abs(weight) if weight > 0 else 0
-        signals.append(f"⛔ ADX={adx} +DI={plus_di} -DI={minus_di} 强下行趋势，禁止加仓")
+        signals.append(f"ADX={adx} +DI={plus_di} -DI={minus_di} 强下行趋势，禁止加仓")
     elif adx > 25 and plus_di > minus_di:
         adx_contribution = 0.05
-        signals.append(f"✅ ADX={adx} 强上行趋势")
+        signals.append(f"ADX={adx} 强上行趋势")
     weight += adx_contribution
     factors["adx"] = round(adx_contribution, 3)
 
@@ -691,8 +691,8 @@ def get_ai_advice(macro_ctx: dict, total_amt: float, results: list) -> str | Non
         "如涉及背离，明确注明'Bull Trap 风险: 高/中/低'；"
         "建议的具体行动（持有/加仓/减仓/观望）。\n\n"
         "### 🧠 重要数据解读规则：\n"
-        "1. 当你看到指标带有 '🟢' 或标注 '(看多)' 时，代表量化模型认为这是利好/加仓信号（例如：空头动能衰竭表示下跌动能由于买盘介入正在消失）。请顺应这一量化信号进行推导，不要将其误判为卖出信号。\n"
-        "2. 当你看到指标带有 '🔴' 或标注 '(看空)' 时，代表这是利空/减仓/观望信号。\n"
+        "1. 当你看到指标带有标注 '(看多)' 时，代表量化模型认为这是利好/加仓信号（例如：空头动能衰竭表示下跌动能由于买盘介入正在消失）。请顺应这一量化信号进行推导，不要将其误判为卖出信号。\n"
+        "2. 当你看到指标带有标注 '(看空)' 时，代表这是利空/减仓/观望信号。\n"
         "3. 即使你认为市场长期看淡，也必须承认并解释短期量化信号的转向。\n\n"
         "- 请务必使用流利、专业的中文（简体）来输出你的投资策略和风控建议。"
     )
@@ -1196,14 +1196,16 @@ def generate_dashboard(results: list, macro_ctx: dict,
         shrinking = r.get('hist_shrinking', False)
         if shrinking:
             if hist < 0:
-                macd_dir, macd_cls = '🟢 空头动能衰竭 (看多)', 'val-up'
+                macd_dir, macd_cls_txt = '空头动能衰竭 (看多)', 'text-bullish'
             else:
-                macd_dir, macd_cls = '🔴 多头动能衰竭 (看空)', 'val-down'
+                macd_dir, macd_cls_txt = '多头动能衰竭 (看空)', 'text-bearish'
         else:
             if hist < 0:
-                macd_dir, macd_cls = '🔴 空头动能加速 (看空)', 'val-down'
+                macd_dir, macd_cls_txt = '空头动能加速 (看空)', 'text-bearish'
             else:
-                macd_dir, macd_cls = '🟢 多头动能加速 (看多)', 'val-up'
+                macd_dir, macd_cls_txt = '多头动能加速 (看多)', 'text-bullish'
+        
+        macd_cls = 'val-up' if '看多' in macd_dir else 'val-down'
 
         bt = r.get('backtest', {})
         wr = bt.get('win_rate', '-')
@@ -1216,14 +1218,19 @@ def generate_dashboard(results: list, macro_ctx: dict,
 
         dd_alert = ''
         if isinstance(mdd, (int, float)) and mdd < -15:
-            dd_alert = f'<div class="dd-warn">⚠ 回撤 {mdd:.1f}% · 倍率已 ×0.8</div>'
+            dd_alert = f'<div class="dd-warn">回撤 {mdd:.1f}% · 倍率已 ×0.8</div>'
 
-        # 将信号转换为 Tag
+        # 将信号转换为 Tag，并根据多空染色
         signals = r.get('signals', [])
         sig_html = ''
         if signals:
-            tags = ''.join(f'<span class="sig-tag">{s}</span>' for s in signals[:3])
-            sig_html = f'<div class="sig-container">{tags}</div>'
+            tag_list = []
+            for s in signals[:3]:
+                cls = 'text-neutral'
+                if '(看多)' in s or '超卖' in s: cls = 'text-bullish'
+                elif '(看空)' in s or '超买' in s or '风险' in s or '止损' in s or '禁止' in s: cls = 'text-bearish'
+                tag_list.append(f'<span class="sig-tag {cls}">{s}</span>')
+            sig_html = f'<div class="sig-container">{"".join(tag_list)}</div>'
 
         asset_cards += f"""
         <div class="card asset-card">
@@ -1242,7 +1249,7 @@ def generate_dashboard(results: list, macro_ctx: dict,
                 </div>
                 <div class="metric">
                     <span class="metric-label">MACD 动量</span>
-                    <span class="metric-value {macd_cls}">{macd_dir}</span>
+                    <span class="metric-value {macd_cls} {macd_cls_txt}">{macd_dir}</span>
                 </div>
                 <div class="metric">
                     <span class="metric-label">策略胜率</span>
@@ -1310,6 +1317,10 @@ def generate_dashboard(results: list, macro_ctx: dict,
     --badge-blue:   #3b82f6;
     --badge-red:    #ef4444;
 }}
+
+.text-bullish {{ color: #10b981; font-weight: 600; }}
+.text-bearish {{ color: #ef4444; font-weight: 600; }}
+.text-neutral {{ color: var(--text-muted); font-weight: 500; }}
 
 .dark-mode {{
     --bg-color:     #0d1117;
@@ -1630,8 +1641,8 @@ def main():
             total_all += rmb_amt
 
             # 打印摘要
-            print(f"   ✅ {name}: p={curr_p:.2f} RSI={rsi_val} "
-                  f"ADX={adx_data['adx']} MACD={'↑' if macd_data['hist_shrinking'] else '↓'} "
+            print(f"   {name}: p={curr_p:.2f} RSI={rsi_val} "
+                  f"ADX={adx_data['adx']} MACD={'向上' if macd_data['hist_shrinking'] else '向下'} "
                   f"ATR_ratio={atr_data['atr_ratio']:.2f} → m={m}x ¥{rmb_amt:,.0f}")
             for sig in result.get("signals", []):
                 print(f"      {sig}")
