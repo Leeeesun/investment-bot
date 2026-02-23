@@ -669,21 +669,24 @@ def get_ai_advice(macro_ctx: dict, total_amt: float, results: list) -> str | Non
     system_prompt = (
         "你是一位拥有 CFA 资格的首席风控官 (CRO)，负责审核量化系统的执行建议。\n\n"
         "### 你将收到的数据：\n"
-        "1. **宏观因子**: VIX、10Y美债收益率及周变化、美元指数走势\n"
-        "2. **各资产详情**: 价格、RSI、ADX(含+DI/-DI)、MACD柱状图状态、触发信号列表、因子权重\n"
-        "3. **背离标注**: 系统已标注的指标间矛盾/背离情况\n\n"
+        "1. 宏观因子: VIX、10Y美债收益率及周变化、美元指数走势\n"
+        "2. 各资产详情: 价格、RSI、ADX(含+DI/-DI)、MACD柱状图状态、触发信号列表、因子权重\n"
+        "3. 背离标注: 系统已标注的指标间矛盾/背离情况\n\n"
         "### 你的分析框架：\n"
-        "1. **背离分析**: 重点分析系统标注的每一个背离。对于'RSI超卖+MACD动能下行'的组合，"
+        "1. 背离分析: 重点分析系统标注的每一个背离。对于'RSI超卖+MACD动能下行'的组合，"
         "明确判断：该信号是否为'多头陷阱 (Bull Trap)'？给出概率评估和依据。\n"
-        "2. **倍率合理性**: 审核量化系统给出的倍率是否合理。如有不妥，给出具体调整建议和理由。\n"
-        "3. **跨资产风险**: 检查是否有被忽略的联动风险或集中度风险。\n"
-        "4. **宏观一致性**: 判断宏观环境是否支持当前的整体仓位方向。\n\n"
-        "### 输出格式：\n"
-        "请给出 3-5 条简练的执行建议，使用 <li> 标签。\n"
-        "每条建议必须包含：\n"
-        "- 具体的逻辑推导依据\n"
-        "- 如涉及背离，明确注明'Bull Trap 风险: 高/中/低'\n"
-        "- 建议的具体行动（持有/加仓/减仓/观望）"
+        "2. 倍率合理性: 审核量化系统给出的倍率是否合理。如有不妥，请直接说明你建议的倍率数值和理由。"
+        "例如：'建议将标普500的倍率从1.5x下调至1.0x'。\n"
+        "3. 跨资产风险: 检查是否有被忽略的联动风险或集中度风险。\n"
+        "4. 宏观一致性: 判断宏观环境是否支持当前的整体仓位方向。\n\n"
+        "### 输出格式（严格遵守）：\n"
+        "- 直接输出纯文本内容，使用 <li> 标签包裹每条建议。\n"
+        "- 严禁使用 ```markdown``` 或任何代码块标签。\n"
+        "- 严禁使用 Markdown 语法（如 **加粗**、# 标题）。\n"
+        "- 请给出 3-5 条简练的执行建议。\n"
+        "- 每条建议必须包含：具体的逻辑推导依据；"
+        "如涉及背离，明确注明'Bull Trap 风险: 高/中/低'；"
+        "建议的具体行动（持有/加仓/减仓/观望）。"
     )
 
     payload = {
@@ -793,64 +796,103 @@ def send_report(title: str, total_rmb: float, results: list,
     tnx_chg_color = "#c5221f" if us10y_chg > 0 else "#137333"
     tnx_chg_sign = "+" if us10y_chg > 0 else ""
 
+    # --- 解析 AI 建议中的倍率，检测与量化结果的偏差 ---
+    divergence_alerts = []
+    if ai_advice:
+        import re
+        for r in results:
+            # 尝试从 AI 文本中匹配 "资产名...倍率...数值x" 或 "资产名...Nx" 的模式
+            patterns = [
+                rf"{re.escape(r['name'])}[^。]*?([0-9]+\.?[0-9]*)\s*[xX倍]",
+                rf"{re.escape(r['name'])}[^。]*?倍率[^0-9]*([0-9]+\.?[0-9]*)",
+            ]
+            for pat in patterns:
+                match = re.search(pat, ai_advice)
+                if match:
+                    ai_m = round(float(match.group(1)), 2)
+                    quant_m = r['m']
+                    if abs(ai_m - quant_m) > 0.5:
+                        divergence_alerts.append(
+                            f"⚠️ {r['name']}: CRO 建议倍率 {ai_m}x vs 量化倍率 {quant_m}x (偏差 {abs(ai_m - quant_m):.2f})"
+                        )
+                    break  # 找到一个匹配即可
+
+    # --- 构建偏差警报 HTML ---
+    divergence_html = ""
+    if divergence_alerts:
+        alert_items = "".join(f'<div style="padding:6px 0;">{a}</div>' for a in divergence_alerts)
+        divergence_html = f"""
+            <div style="background:#fce8e6; border-radius:8px; padding:16px; margin-top:16px; border:1px solid #f5c6cb;">
+                <div style="font-size:13px; color:#c5221f; font-weight:700; margin-bottom:8px;">⚠️ CRO 与量化系统倍率偏差警报</div>
+                <div style="font-size:13px; color:#c5221f; font-weight:600;">{alert_items}</div>
+            </div>"""
+
     html = f"""
-    <div style="font-family:'Roboto',Arial,sans-serif; max-width:750px; margin:auto; border:1px solid #dadce0; border-radius:8px; overflow:hidden; background:#fff;">
-        <div style="padding:20px 24px; border-bottom:1px solid #dadce0;">
-            <span style="font-size:22px; color:#5f6368;">Google</span><span style="font-size:22px; color:#5f6368; font-weight:400;"> Finance</span>
+    <!DOCTYPE html>
+    <html>
+    <head>
+        <meta charset="utf-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    </head>
+    <body style="margin:0; padding:0; font-size:14px;">
+    <div style="font-family:'Roboto',Arial,sans-serif; width:100%; max-width:750px; margin:auto; border:1px solid #dadce0; border-radius:8px; overflow:hidden; background:#fff; box-sizing:border-box;">
+        <div style="padding:16px 20px; border-bottom:1px solid #dadce0;">
+            <span style="font-size:20px; color:#5f6368;">Google</span><span style="font-size:20px; color:#5f6368; font-weight:400;"> Finance</span>
             <span style="background:#e8f0fe; color:#1a73e8; padding:2px 8px; border-radius:12px; font-size:10px; margin-left:10px; font-weight:600;">SENTINEL PRO 6.0</span>
         </div>
-        <div style="padding:24px;">
-            <table width="100%" style="margin-bottom:24px;">
+        <div style="padding:16px 20px;">
+            <table width="100%" style="margin-bottom:20px; border-spacing:6px; border-collapse:separate;">
                 <tr>
-                    <td style="border:1px solid #dadce0; border-radius:8px; padding:14px; width:30%;">
-                        <div style="color:#70757a; font-size:10px; margin-bottom:4px; text-transform:uppercase;">Market VIX</div>
-                        <div style="font-size:24px; color:{'#c5221f' if vix > 25 else '#202124'};">{vix:.1f}</div>
+                    <td style="border:1px solid #dadce0; border-radius:8px; padding:12px; width:33%;">
+                        <div style="color:#70757a; font-size:10px; margin-bottom:4px;">恐慌指数 VIX</div>
+                        <div style="font-size:22px; color:{'#c5221f' if vix > 25 else '#202124'};">{vix:.1f}</div>
                     </td>
-                    <td width="3%"></td>
-                    <td style="border:1px solid #dadce0; border-radius:8px; padding:14px; width:30%;">
-                        <div style="color:#70757a; font-size:10px; margin-bottom:4px; text-transform:uppercase;">US 10Y Yield</div>
-                        <div style="font-size:24px; color:#202124;">{us10y:.2f}%</div>
+                    <td style="border:1px solid #dadce0; border-radius:8px; padding:12px; width:33%;">
+                        <div style="color:#70757a; font-size:10px; margin-bottom:4px;">10年美债收益率</div>
+                        <div style="font-size:22px; color:#202124;">{us10y:.2f}%</div>
                         <div style="font-size:11px; color:{tnx_chg_color};">{tnx_chg_sign}{us10y_chg:.1f}% 周变化</div>
                     </td>
-                    <td width="3%"></td>
-                    <td style="border:1px solid #dadce0; border-radius:8px; padding:14px; width:30%;">
-                        <div style="color:#70757a; font-size:10px; margin-bottom:4px; text-transform:uppercase;">USD Index (DXY)</div>
-                        <div style="font-size:24px; color:#202124;">{dxy:.1f}</div>
+                    <td style="border:1px solid #dadce0; border-radius:8px; padding:12px; width:33%;">
+                        <div style="color:#70757a; font-size:10px; margin-bottom:4px;">美元指数 DXY</div>
+                        <div style="font-size:22px; color:#202124;">{dxy:.1f}</div>
                         <div style="font-size:11px; color:#70757a;">{'↑ 上升通道' if macro_ctx.get('dxy_trending_up') else '→ 中性'}</div>
                     </td>
                 </tr>
             </table>
-            <div style="background:#e8f0fe; border-radius:8px; padding:14px; margin-bottom:24px; text-align:center;">
-                <span style="color:#70757a; font-size:11px; text-transform:uppercase;">Daily Total Budget</span>
-                <div style="font-size:28px; color:#1a73e8; font-weight:500;">¥ {total_rmb:,.2f}</div>
+            <div style="background:#e8f0fe; border-radius:8px; padding:12px; margin-bottom:20px; text-align:center;">
+                <span style="color:#70757a; font-size:11px;">今日预计投入总额</span>
+                <div style="font-size:26px; color:#1a73e8; font-weight:500;">¥ {total_rmb:,.2f}</div>
             </div>
-            <table width="100%" style="border-collapse:collapse; margin-bottom:30px; font-size:13px;">
+            <table width="100%" style="border-collapse:collapse; margin-bottom:24px; font-size:13px;">
                 <thead>
-                    <tr style="border-bottom: 2px solid #dadce0; color: #70757a; text-transform: uppercase; font-size:11px;">
-                        <th align="left" style="padding:8px;">Asset</th>
-                        <th align="right" style="padding:8px;">Price</th>
-                        <th align="right" style="padding:8px;">RSI</th>
-                        <th align="right" style="padding:8px;">ADX</th>
-                        <th align="right" style="padding:8px;">MACD</th>
-                        <th align="right" style="padding:8px;">Mult.</th>
-                        <th align="right" style="padding:8px;">Amount</th>
+                    <tr style="border-bottom: 2px solid #dadce0; color: #70757a; font-size:11px;">
+                        <th align="left" style="padding:8px 6px;">资产</th>
+                        <th align="right" style="padding:8px 6px;">当前价</th>
+                        <th align="right" style="padding:8px 6px;">RSI</th>
+                        <th align="right" style="padding:8px 6px;">ADX</th>
+                        <th align="right" style="padding:8px 6px;">MACD</th>
+                        <th align="right" style="padding:8px 6px;">投入倍率</th>
+                        <th align="right" style="padding:8px 6px;">预计金额</th>
                     </tr>
                 </thead>
                 <tbody>{rows_html}</tbody>
             </table>
-            <div style="background:#f8f9fa; border-radius:8px; padding:24px; border:1px solid #eee;">
-                <div style="font-size:15px; color:#202124; font-weight:500; margin-bottom:12px;">
+            <div style="background:#f8f9fa; border-radius:8px; padding:20px; border:1px solid #eee;">
+                <div style="font-size:14px; color:#202124; font-weight:500; margin-bottom:10px;">
                     🛡️ 首席风控官建议 (智谱 AI · CRO)
                 </div>
-                <ul style="margin:0; padding-left:20px; font-size:14px; color:#3c4043; line-height:1.8;">
+                <ul style="margin:0; padding-left:20px; font-size:13px; color:#3c4043; line-height:1.8;">
                     {ai_advice if ai_advice else '<li>风控引擎同步中，请先参考量化权重执行。</li>'}
                 </ul>
+                {divergence_html}
             </div>
         </div>
-        <div style="background:#f1f3f4; padding:12px 24px; text-align:center; color:#9aa0a6; font-size:10px;">
+        <div style="background:#f1f3f4; padding:10px 20px; text-align:center; color:#9aa0a6; font-size:10px;">
             Sentinel Pro 6.0 (Multi-Factor Enhanced) · {datetime.now().strftime('%Y-%m-%d %H:%M')}
         </div>
-    </div>"""
+    </div>
+    </body>
+    </html>"""
 
     msg = MIMEMultipart()
     msg['Subject'] = Header(title, 'utf-8')
