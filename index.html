@@ -1,267 +1,423 @@
 <!DOCTYPE html>
-<html lang="zh-CN" class="dark">
+<html lang="zh-CN">
 <head>
-    <meta charset="utf-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <meta name="robots" content="noindex, nofollow">
-    <title>Sentinel Pro 6.0 | 智能投资看板</title>
-    <script src="https://cdn.tailwindcss.com"></script>
-    <style>
-        body { font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif; }
-        .glass { background: rgba(15, 23, 42, 0.6); backdrop-filter: blur(12px); }
-    </style>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Sentinel Pro 6.0 | 智能投资看板</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+:root {
+    --bg-color:     #f7f9fa;
+    --card-bg:      #ffffff;
+    --text-main:    #111827;
+    --text-muted:   #6b7280;
+    --border-color: rgba(0,0,0,0.06);
+    --accent:       #6366f1;
+    --success:      #10b981;
+    --warning:      #f59e0b;
+    --danger:       #ef4444;
+    --nav-bg:       rgba(247, 249, 250, 0.8);
+    --shadow:       0 4px 24px rgba(0,0,0,0.04);
+    --badge-green:  #10b981;
+    --badge-blue:   #3b82f6;
+    --badge-red:    #ef4444;
+}
+
+.dark-mode {
+    --bg-color:     #0d1117;
+    --card-bg:      #161b22;
+    --text-main:    #e6edf3;
+    --text-muted:   #8b949e;
+    --border-color: rgba(255,255,255,0.08);
+    --nav-bg:       rgba(13, 17, 23, 0.8);
+    --shadow:       0 4px 24px rgba(0,0,0,0.2);
+}
+
+* { box-sizing: border-box; margin: 0; padding: 0; }
+
+body {
+    font-family: 'Inter', -apple-system, system-ui, sans-serif;
+    background: var(--bg-color);
+    color: var(--text-main);
+    transition: background 0.3s, color 0.3s;
+    -webkit-font-smoothing: antialiased;
+    padding-bottom: 80px;
+}
+
+/* Header & Nav */
+.nav {
+    position: sticky;
+    top: 0;
+    z-index: 1000;
+    background: var(--nav-bg);
+    backdrop-filter: blur(12px);
+    border-bottom: 1px solid var(--border-color);
+    padding: 12px 24px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.brand { font-weight: 700; font-size: 18px; letter-spacing: -0.5px; }
+.brand span { color: var(--accent); font-size: 14px; margin-left: 4px; }
+.nav-meta { display: flex; align-items: center; gap: 16px; font-size: 12px; color: var(--text-muted); }
+
+.theme-toggle {
+    background: none; border: 1px solid var(--border-color); border-radius: 12px;
+    width: 40px; height: 40px; cursor: pointer; display: flex; align-items: center; justify-content: center;
+    font-size: 18px; transition: all 0.2s;
+}
+.theme-toggle:hover { background: var(--border-color); }
+
+/* Bento Layout */
+.container { max-width: 1200px; margin: 0 auto; padding: 32px 24px; }
+.bento-grid { display: grid; gap: 20px; }
+
+.card {
+    background: var(--card-bg);
+    border: 1px solid var(--border-color);
+    border-radius: 20px;
+    padding: 24px;
+    box-shadow: var(--shadow);
+    transition: transform 0.2s;
+}
+.card:hover { border-color: var(--accent); }
+
+/* Macro Row */
+.macro-grid { grid-template-columns: repeat(3, 1fr); }
+
+.macro-label {
+    font-size: 12px; font-weight: 500; color: var(--text-muted);
+    text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 4px;
+}
+.macro-value {
+    font-size: 28px; font-weight: 700; letter-spacing: -1px; margin: 8px 0;
+}
+.macro-sub { font-size: 12px; font-weight: 500; }
+
+/* Asset Grid */
+.asset-grid { grid-template-columns: repeat(auto-fit, minmax(340px, 1fr)); }
+
+.asset-top { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; }
+.asset-id { display: flex; align-items: center; gap: 8px; }
+.asset-name { font-size: 16px; font-weight: 600; }
+.asset-price { font-size: 28px; font-weight: 700; letter-spacing: -1px; }
+
+.badge {
+    font-size: 11px; font-weight: 700; padding: 4px 10px; border-radius: 8px;
+    text-transform: uppercase;
+}
+.badge-green { background: rgba(16,185,129,0.1); color: var(--success); }
+.badge-blue  { background: rgba(59,130,246,0.1); color: var(--badge-blue); }
+.badge-red   { background: rgba(239,68,68,0.1); color: var(--danger); }
+.badge-muted { background: var(--border-color); color: var(--text-muted); }
+
+.metrics-grid {
+    display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 20px;
+}
+.metric { background: var(--bg-color); padding: 16px; border-radius: 16px; }
+.metric-label {
+    display: block; font-size: 11px; color: var(--text-muted);
+    text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 4px;
+}
+.metric-value { font-size: 15px; font-weight: 600; }
+
+.val-up { color: var(--success); }
+.val-down { color: var(--danger); }
+
+.dd-warn {
+    padding: 10px 14px; background: rgba(245,158,11,0.1); color: var(--warning);
+    border-radius: 12px; font-size: 12px; font-weight: 600; margin-bottom: 16px;
+}
+
+/* Signal Tags */
+.sig-container { display: flex; flex-wrap: wrap; gap: 6px; }
+.sig-tag {
+    background: var(--bg-color); color: var(--text-muted); font-size: 11px;
+    font-weight: 500; padding: 4px 10px; border-radius: 10px; border: 1px solid var(--border-color);
+}
+
+/* AI Section */
+.ai-card { margin-top: 12px; }
+.section-title {
+    display: flex; align-items: center; gap: 8px; font-size: 14px; font-weight: 600;
+    margin-bottom: 20px; color: var(--accent);
+}
+.ai-list { list-style: none; }
+.ai-list li {
+    display: flex; gap: 12px; padding: 12px 0; border-bottom: 1px solid var(--border-color);
+    font-size: 14px; line-height: 1.6;
+}
+.ai-list li:last-child { border-bottom: none; }
+.dot { width: 8px; height: 8px; border-radius: 50%; margin-top: 8px; flex-shrink: 0; }
+.dot-green { background: var(--success); }
+.dot-yellow { background: var(--warning); }
+.dot-red { background: var(--danger); }
+
+@media (max-width: 768px) {
+    .macro-grid { grid-template-columns: 1fr; }
+    .macro-value { font-size: 24px; }
+    .asset-price { font-size: 24px; }
+}
+</style>
 </head>
-<body class="bg-slate-950 text-slate-200 min-h-screen">
+<body>
 
-    <!-- 背景装饰 -->
-    <div class="fixed inset-0 overflow-hidden pointer-events-none">
-        <div class="absolute -top-40 -right-40 w-80 h-80 bg-indigo-500/10 rounded-full blur-3xl"></div>
-        <div class="absolute -bottom-40 -left-40 w-80 h-80 bg-emerald-500/10 rounded-full blur-3xl"></div>
+<nav class="nav">
+    <div class="brand">Sentinel Pro <span>v6.0</span></div>
+    <div class="nav-meta">
+        <span>2026-02-23 09:45</span>
+        <button class="theme-toggle" id="themeBtn">☀️</button>
     </div>
+</nav>
 
-    <div class="relative max-w-6xl mx-auto px-4 py-8">
-
-        <!-- 页头 -->
-        <header class="mb-8">
-            <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
-                <div>
-                    <h1 class="text-2xl sm:text-3xl font-bold text-white">
-                        Sentinel Pro
-                        <span class="text-sm font-normal text-indigo-400 ml-2">v6.0</span>
-                    </h1>
-                    <p class="text-slate-500 text-sm mt-1">多因子智能定投决策系统</p>
-                </div>
-                <div class="flex items-center gap-2 text-xs text-slate-500">
-                    <div class="w-2 h-2 bg-emerald-400 rounded-full animate-pulse"></div>
-                    最后更新: 2026-02-23 09:13
-                </div>
+<main class="container">
+    <div class="bento-grid">
+        <!-- Macro Indicators -->
+        <section class="bento-grid macro-grid">
+            <div class="card">
+                <div class="macro-label">恐慌指数 (VIX)</div>
+                <div class="macro-value" style="color:var(--warning)">20.1</div>
+                <div class="macro-sub" style="color:var(--warning)">警惕</div>
             </div>
-        </header>
-
-        <!-- 宏观环境卡片 -->
-        <section class="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-8">
-            <div class="glass rounded-xl p-5 border border-slate-800">
-                <div class="text-xs text-slate-500 uppercase tracking-wider mb-1">恐慌指数 VIX</div>
-                <div class="text-3xl font-light text-yellow-400">20.4</div>
-                <div class="text-xs text-yellow-400 mt-1">警惕</div>
+            <div class="card">
+                <div class="macro-label">美国10年期国债收益率</div>
+                <div class="macro-value">4.09%</div>
+                <div class="macro-sub" style="color:var(--success)">-0.4% 周变化</div>
             </div>
-            <div class="glass rounded-xl p-5 border border-slate-800">
-                <div class="text-xs text-slate-500 uppercase tracking-wider mb-1">10年美债收益率</div>
-                <div class="text-3xl font-light text-white">4.09%</div>
-                <div class="text-xs text-emerald-400 mt-1">
-                    -0.4% 周变化
-                </div>
-            </div>
-            <div class="glass rounded-xl p-5 border border-slate-800">
-                <div class="text-xs text-slate-500 uppercase tracking-wider mb-1">美元指数 DXY</div>
-                <div class="text-3xl font-light text-white">97.6</div>
-                <div class="text-xs text-slate-400 mt-1">→ 中性</div>
+            <div class="card">
+                <div class="macro-label">美元指数 (DXY)</div>
+                <div class="macro-value">97.6</div>
+                <div class="macro-sub text-muted">中性</div>
             </div>
         </section>
 
-        <!-- 资产卡片 -->
-        <section class="mb-8">
-            <h2 class="text-lg font-semibold text-white mb-4 flex items-center gap-2">
-                <svg class="w-5 h-5 text-sky-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6"/>
+        <!-- Insights Grid -->
+        <section class="bento-grid asset-grid">
+            
+        <div class="card asset-card">
+            <div class="asset-top">
+                <div class="asset-id">
+                    <span class="asset-name">标普500</span>
+                    <span class="badge badge-muted">0.7x</span>
+                </div>
+                <div class="asset-price">$6909.51</div>
+            </div>
+            
+            <div class="metrics-grid">
+                <div class="metric">
+                    <span class="metric-label">RSI 指标</span>
+                    <span class="metric-value">47.7</span>
+                </div>
+                <div class="metric">
+                    <span class="metric-label">MACD 动量</span>
+                    <span class="metric-value val-up">↑ 动量衰减</span>
+                </div>
+                <div class="metric">
+                    <span class="metric-label">策略胜率</span>
+                    <span class="metric-value">83.3%</span>
+                </div>
+                <div class="metric">
+                    <span class="metric-label">回测年化</span>
+                    <span class="metric-value val-up">+6.7%</span>
+                </div>
+            </div>
+            
+            <div class="sig-container"><span class="sig-tag">📉 价格低于 MA20 (0.0%)</span><span class="sig-tag">🟢 MACD 柱状图缩短，动量衰减确认</span><span class="sig-tag">🔗 相关性熔断: 标普500↔纳斯达克 (corr=0.98) — m: 1.03→0.7, 1.24→1.69</span></div>
+        </div>
+        <div class="card asset-card">
+            <div class="asset-top">
+                <div class="asset-id">
+                    <span class="asset-name">纳斯达克</span>
+                    <span class="badge badge-green">1.69x</span>
+                </div>
+                <div class="asset-price">$22886.07</div>
+            </div>
+            
+            <div class="metrics-grid">
+                <div class="metric">
+                    <span class="metric-label">RSI 指标</span>
+                    <span class="metric-value">40.6</span>
+                </div>
+                <div class="metric">
+                    <span class="metric-label">MACD 动量</span>
+                    <span class="metric-value val-up">↑ 动量衰减</span>
+                </div>
+                <div class="metric">
+                    <span class="metric-label">策略胜率</span>
+                    <span class="metric-value">58.3%</span>
+                </div>
+                <div class="metric">
+                    <span class="metric-label">回测年化</span>
+                    <span class="metric-value val-up">+4.5%</span>
+                </div>
+            </div>
+            
+            <div class="sig-container"><span class="sig-tag">📉 价格低于 MA20 (1.1%)</span><span class="sig-tag">📉 价格低于 MA60 (1.8%)</span><span class="sig-tag">📉 价格低于 MA120 (0.5%)</span></div>
+        </div>
+        <div class="card asset-card">
+            <div class="asset-top">
+                <div class="asset-id">
+                    <span class="asset-name">日经225</span>
+                    <span class="badge badge-red">0.4x</span>
+                </div>
+                <div class="asset-price">$56825.7</div>
+            </div>
+            
+            <div class="metrics-grid">
+                <div class="metric">
+                    <span class="metric-label">RSI 指标</span>
+                    <span class="metric-value">67.3</span>
+                </div>
+                <div class="metric">
+                    <span class="metric-label">MACD 动量</span>
+                    <span class="metric-value val-up">↑ 动量衰减</span>
+                </div>
+                <div class="metric">
+                    <span class="metric-label">策略胜率</span>
+                    <span class="metric-value">100.0%</span>
+                </div>
+                <div class="metric">
+                    <span class="metric-label">回测年化</span>
+                    <span class="metric-value val-up">+39.5%</span>
+                </div>
+            </div>
+            
+            <div class="sig-container"><span class="sig-tag">🟡 RSI=67.3 偏高</span><span class="sig-tag">✅ ADX=25.9 强上行趋势</span><span class="sig-tag">📊 ATR 波动比=1.63x (极端)，头寸缩减系数=0.61</span></div>
+        </div>
+        <div class="card asset-card">
+            <div class="asset-top">
+                <div class="asset-id">
+                    <span class="asset-name">德国DAX</span>
+                    <span class="badge badge-muted">0.83x</span>
+                </div>
+                <div class="asset-price">$25174.52</div>
+            </div>
+            
+            <div class="metrics-grid">
+                <div class="metric">
+                    <span class="metric-label">RSI 指标</span>
+                    <span class="metric-value">59.1</span>
+                </div>
+                <div class="metric">
+                    <span class="metric-label">MACD 动量</span>
+                    <span class="metric-value val-down">↓ 动量加速</span>
+                </div>
+                <div class="metric">
+                    <span class="metric-label">策略胜率</span>
+                    <span class="metric-value">97.2%</span>
+                </div>
+                <div class="metric">
+                    <span class="metric-label">回测年化</span>
+                    <span class="metric-value val-up">+6.6%</span>
+                </div>
+            </div>
+            
+            <div class="sig-container"><span class="sig-tag">💵 美元偏强，非美资产(EUR)减权 w_macro=0.9</span></div>
+        </div>
+        <div class="card asset-card">
+            <div class="asset-top">
+                <div class="asset-id">
+                    <span class="asset-name">恒生指数</span>
+                    <span class="badge badge-muted">0.83x</span>
+                </div>
+                <div class="asset-price">$27081.91</div>
+            </div>
+            
+            <div class="metrics-grid">
+                <div class="metric">
+                    <span class="metric-label">RSI 指标</span>
+                    <span class="metric-value">39.3</span>
+                </div>
+                <div class="metric">
+                    <span class="metric-label">MACD 动量</span>
+                    <span class="metric-value val-down">↓ 动量加速</span>
+                </div>
+                <div class="metric">
+                    <span class="metric-label">策略胜率</span>
+                    <span class="metric-value">94.4%</span>
+                </div>
+                <div class="metric">
+                    <span class="metric-label">回测年化</span>
+                    <span class="metric-value val-up">+8.0%</span>
+                </div>
+            </div>
+            
+            <div class="sig-container"><span class="sig-tag">💵 美元偏强，非美资产(HKD)减权 w_macro=0.9</span></div>
+        </div>
+        <div class="card asset-card">
+            <div class="asset-top">
+                <div class="asset-id">
+                    <span class="asset-name">黄金</span>
+                    <span class="badge badge-red">0.3x</span>
+                </div>
+                <div class="asset-price">$5168.0</div>
+            </div>
+            
+            <div class="metrics-grid">
+                <div class="metric">
+                    <span class="metric-label">RSI 指标</span>
+                    <span class="metric-value">70.2</span>
+                </div>
+                <div class="metric">
+                    <span class="metric-label">MACD 动量</span>
+                    <span class="metric-value val-up">↑ 动量衰减</span>
+                </div>
+                <div class="metric">
+                    <span class="metric-label">策略胜率</span>
+                    <span class="metric-value">100.0%</span>
+                </div>
+                <div class="metric">
+                    <span class="metric-label">回测年化</span>
+                    <span class="metric-value val-up">+56.0%</span>
+                </div>
+            </div>
+            
+            <div class="sig-container"><span class="sig-tag">🔴 RSI=70.2 超买</span><span class="sig-tag">📊 ATR 波动比=2.33x (极端)，头寸缩减系数=0.43</span></div>
+        </div>
+        </section>
+
+        <!-- AI Advice -->
+        <section>
+            
+        <div class="card ai-card">
+            <div class="section-title">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="var(--accent)" stroke-width="2">
+                    <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>
                 </svg>
-                资产决策总览
-            </h2>
-            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                
-        <div class="bg-slate-800/50 backdrop-blur rounded-xl border border-slate-500/30 p-5 hover:bg-slate-800/70 transition-all">
-            <div class="flex items-center justify-between mb-3">
-                <h3 class="text-lg font-semibold text-white">标普500</h3>
-                <span class="px-3 py-1 rounded-full text-sm font-bold ring-1 bg-slate-500/20 text-slate-300 ring-slate-500/30">0.7x</span>
+                AI 首席风控官 (CRO)
             </div>
-            <div class="text-2xl font-light text-white mb-3">$6909.51</div>
-            <div class="grid grid-cols-2 gap-2 text-sm">
-                <div class="bg-slate-900/50 rounded-lg p-2">
-                    <div class="text-slate-500 text-xs">RSI</div>
-                    <div class="text-white font-medium">47.7</div>
-                </div>
-                <div class="bg-slate-900/50 rounded-lg p-2">
-                    <div class="text-slate-500 text-xs">MACD 动量</div>
-                    <div class="text-emerald-400 font-medium">↑ 衰减</div>
-                </div>
-                <div class="bg-slate-900/50 rounded-lg p-2">
-                    <div class="text-slate-500 text-xs">策略胜率</div>
-                    <div class="text-white font-medium">83.3%</div>
-                </div>
-                <div class="bg-slate-900/50 rounded-lg p-2">
-                    <div class="text-slate-500 text-xs">回测年化</div>
-                    <div class="text-emerald-400 font-medium">+6.7%</div>
-                </div>
-            </div>
-            
-            <ul class="mt-2 text-xs text-slate-500 space-y-0.5 list-disc list-inside"><li class="truncate">📉 价格低于 MA20 (0.0%)</li><li class="truncate">🟢 MACD 柱状图缩短，动量衰减确认</li><li class="truncate">🔗 相关性熔断: 标普500↔纳斯达克 (corr=0.98) — m: 1.03→0.7, 1.24→1.69</li></ul>
-        </div>
-        <div class="bg-slate-800/50 backdrop-blur rounded-xl border border-emerald-500/30 p-5 hover:bg-slate-800/70 transition-all">
-            <div class="flex items-center justify-between mb-3">
-                <h3 class="text-lg font-semibold text-white">纳斯达克</h3>
-                <span class="px-3 py-1 rounded-full text-sm font-bold ring-1 bg-emerald-500/20 text-emerald-400 ring-emerald-500/30">1.69x</span>
-            </div>
-            <div class="text-2xl font-light text-white mb-3">$22886.07</div>
-            <div class="grid grid-cols-2 gap-2 text-sm">
-                <div class="bg-slate-900/50 rounded-lg p-2">
-                    <div class="text-slate-500 text-xs">RSI</div>
-                    <div class="text-white font-medium">40.6</div>
-                </div>
-                <div class="bg-slate-900/50 rounded-lg p-2">
-                    <div class="text-slate-500 text-xs">MACD 动量</div>
-                    <div class="text-emerald-400 font-medium">↑ 衰减</div>
-                </div>
-                <div class="bg-slate-900/50 rounded-lg p-2">
-                    <div class="text-slate-500 text-xs">策略胜率</div>
-                    <div class="text-white font-medium">58.3%</div>
-                </div>
-                <div class="bg-slate-900/50 rounded-lg p-2">
-                    <div class="text-slate-500 text-xs">回测年化</div>
-                    <div class="text-emerald-400 font-medium">+4.5%</div>
-                </div>
-            </div>
-            
-            <ul class="mt-2 text-xs text-slate-500 space-y-0.5 list-disc list-inside"><li class="truncate">📉 价格低于 MA20 (1.1%)</li><li class="truncate">📉 价格低于 MA60 (1.8%)</li><li class="truncate">📉 价格低于 MA120 (0.5%)</li></ul>
-        </div>
-        <div class="bg-slate-800/50 backdrop-blur rounded-xl border border-red-500/30 p-5 hover:bg-slate-800/70 transition-all">
-            <div class="flex items-center justify-between mb-3">
-                <h3 class="text-lg font-semibold text-white">日经225</h3>
-                <span class="px-3 py-1 rounded-full text-sm font-bold ring-1 bg-red-500/20 text-red-400 ring-red-500/30">0.4x</span>
-            </div>
-            <div class="text-2xl font-light text-white mb-3">$56825.7</div>
-            <div class="grid grid-cols-2 gap-2 text-sm">
-                <div class="bg-slate-900/50 rounded-lg p-2">
-                    <div class="text-slate-500 text-xs">RSI</div>
-                    <div class="text-white font-medium">67.3</div>
-                </div>
-                <div class="bg-slate-900/50 rounded-lg p-2">
-                    <div class="text-slate-500 text-xs">MACD 动量</div>
-                    <div class="text-emerald-400 font-medium">↑ 衰减</div>
-                </div>
-                <div class="bg-slate-900/50 rounded-lg p-2">
-                    <div class="text-slate-500 text-xs">策略胜率</div>
-                    <div class="text-white font-medium">100.0%</div>
-                </div>
-                <div class="bg-slate-900/50 rounded-lg p-2">
-                    <div class="text-slate-500 text-xs">回测年化</div>
-                    <div class="text-emerald-400 font-medium">+39.5%</div>
-                </div>
-            </div>
-            
-            <ul class="mt-2 text-xs text-slate-500 space-y-0.5 list-disc list-inside"><li class="truncate">🟡 RSI=67.3 偏高</li><li class="truncate">✅ ADX=25.9 强上行趋势</li><li class="truncate">📊 ATR 波动比=1.63x (极端)，头寸缩减系数=0.61</li></ul>
-        </div>
-        <div class="bg-slate-800/50 backdrop-blur rounded-xl border border-slate-500/30 p-5 hover:bg-slate-800/70 transition-all">
-            <div class="flex items-center justify-between mb-3">
-                <h3 class="text-lg font-semibold text-white">德国DAX</h3>
-                <span class="px-3 py-1 rounded-full text-sm font-bold ring-1 bg-slate-500/20 text-slate-300 ring-slate-500/30">0.83x</span>
-            </div>
-            <div class="text-2xl font-light text-white mb-3">$25170.53</div>
-            <div class="grid grid-cols-2 gap-2 text-sm">
-                <div class="bg-slate-900/50 rounded-lg p-2">
-                    <div class="text-slate-500 text-xs">RSI</div>
-                    <div class="text-white font-medium">59.0</div>
-                </div>
-                <div class="bg-slate-900/50 rounded-lg p-2">
-                    <div class="text-slate-500 text-xs">MACD 动量</div>
-                    <div class="text-red-400 font-medium">↓ 加速</div>
-                </div>
-                <div class="bg-slate-900/50 rounded-lg p-2">
-                    <div class="text-slate-500 text-xs">策略胜率</div>
-                    <div class="text-white font-medium">97.2%</div>
-                </div>
-                <div class="bg-slate-900/50 rounded-lg p-2">
-                    <div class="text-slate-500 text-xs">回测年化</div>
-                    <div class="text-emerald-400 font-medium">+6.6%</div>
-                </div>
-            </div>
-            
-            <ul class="mt-2 text-xs text-slate-500 space-y-0.5 list-disc list-inside"><li class="truncate">💵 美元偏强，非美资产(EUR)减权 w_macro=0.9</li></ul>
-        </div>
-        <div class="bg-slate-800/50 backdrop-blur rounded-xl border border-slate-500/30 p-5 hover:bg-slate-800/70 transition-all">
-            <div class="flex items-center justify-between mb-3">
-                <h3 class="text-lg font-semibold text-white">恒生指数</h3>
-                <span class="px-3 py-1 rounded-full text-sm font-bold ring-1 bg-slate-500/20 text-slate-300 ring-slate-500/30">0.83x</span>
-            </div>
-            <div class="text-2xl font-light text-white mb-3">$27081.91</div>
-            <div class="grid grid-cols-2 gap-2 text-sm">
-                <div class="bg-slate-900/50 rounded-lg p-2">
-                    <div class="text-slate-500 text-xs">RSI</div>
-                    <div class="text-white font-medium">39.3</div>
-                </div>
-                <div class="bg-slate-900/50 rounded-lg p-2">
-                    <div class="text-slate-500 text-xs">MACD 动量</div>
-                    <div class="text-red-400 font-medium">↓ 加速</div>
-                </div>
-                <div class="bg-slate-900/50 rounded-lg p-2">
-                    <div class="text-slate-500 text-xs">策略胜率</div>
-                    <div class="text-white font-medium">94.4%</div>
-                </div>
-                <div class="bg-slate-900/50 rounded-lg p-2">
-                    <div class="text-slate-500 text-xs">回测年化</div>
-                    <div class="text-emerald-400 font-medium">+8.0%</div>
-                </div>
-            </div>
-            
-            <ul class="mt-2 text-xs text-slate-500 space-y-0.5 list-disc list-inside"><li class="truncate">💵 美元偏强，非美资产(HKD)减权 w_macro=0.9</li></ul>
-        </div>
-        <div class="bg-slate-800/50 backdrop-blur rounded-xl border border-red-500/30 p-5 hover:bg-slate-800/70 transition-all">
-            <div class="flex items-center justify-between mb-3">
-                <h3 class="text-lg font-semibold text-white">黄金</h3>
-                <span class="px-3 py-1 rounded-full text-sm font-bold ring-1 bg-red-500/20 text-red-400 ring-red-500/30">0.3x</span>
-            </div>
-            <div class="text-2xl font-light text-white mb-3">$5161.9</div>
-            <div class="grid grid-cols-2 gap-2 text-sm">
-                <div class="bg-slate-900/50 rounded-lg p-2">
-                    <div class="text-slate-500 text-xs">RSI</div>
-                    <div class="text-white font-medium">70.0</div>
-                </div>
-                <div class="bg-slate-900/50 rounded-lg p-2">
-                    <div class="text-slate-500 text-xs">MACD 动量</div>
-                    <div class="text-emerald-400 font-medium">↑ 衰减</div>
-                </div>
-                <div class="bg-slate-900/50 rounded-lg p-2">
-                    <div class="text-slate-500 text-xs">策略胜率</div>
-                    <div class="text-white font-medium">100.0%</div>
-                </div>
-                <div class="bg-slate-900/50 rounded-lg p-2">
-                    <div class="text-slate-500 text-xs">回测年化</div>
-                    <div class="text-emerald-400 font-medium">+55.8%</div>
-                </div>
-            </div>
-            
-            <ul class="mt-2 text-xs text-slate-500 space-y-0.5 list-disc list-inside"><li class="truncate">🟡 RSI=70.0 偏高</li><li class="truncate">📊 ATR 波动比=2.33x (极端)，头寸缩减系数=0.43</li></ul>
-        </div>
-            </div>
-        </section>
-
-        <!-- AI 建议 -->
-        <section class="mb-8">
-            
-        <div class="bg-slate-800/50 backdrop-blur rounded-xl border border-indigo-500/30 p-6">
-            <div class="flex items-center gap-2 mb-4">
-                <div class="w-8 h-8 bg-indigo-500/20 rounded-lg flex items-center justify-center">
-                    <svg class="w-5 h-5 text-indigo-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z"/>
-                    </svg>
-                </div>
-                <h2 class="text-lg font-semibold text-white">首席风控官建议 (AI CRO)</h2>
-            </div>
-            <ul class="space-y-2 text-sm text-slate-300 leading-relaxed list-disc list-inside">
-                - <li>对于标普500，当前RSI处于47.7，接近超卖区域，但MACD柱状图缩短且动量衰减，这可能是多头陷阱的迹象。Bull Trap 风险：中。建议减仓至0.5x倍率，以降低风险。
-- <li>纳斯达克指数的RSI和MACD柱状图均显示动量衰减，但价格低于多个移动平均线，这可能表明市场疲软。Bull Trap 风险：中。建议将倍率从1.69x下调至1.0x，并保持观望。
-- <li>日经225的RSI偏高，但ADX显示强上行趋势，这可能是合理趋势的延续。Bull Trap 风险：低。建议维持当前倍率0.4x，并关注后续走势。
-- <li>德国DAX和恒生指数均因美元走强而减权，但MACD柱状图显示下行趋势，这表明可能存在下行风险。建议将倍率从0.83x下调至0.5x，并保持谨慎。
-- <li>黄金的RSI处于70.0，接近超买区域，但MACD柱状图缩短，这可能表明市场即将反转。Bull Trap 风险：低。建议维持当前倍率0.3x，并关注价格动态。
+            <ul class="ai-list">
+                - <li>对于标普500，当前RSI处于47.7，显示市场可能处于超卖状态，但MACD柱状图缩短且动量衰减，表明多头动能可能减弱。考虑到VIX处于中性水平，建议保持观望态度，不进行加仓操作。Bull Trap风险：低。
+- <li>纳斯达克指数的RSI和MACD柱状图均显示动量衰减，但价格连续低于多个移动平均线，这可能表明市场处于下行趋势。鉴于相关性熔断指标显示与标普500的相关性减弱，建议减仓纳斯达克，降低风险敞口。Bull Trap风险：中。
+- <li>日经225的RSI偏高，但ADX显示强上行趋势，这可能是合理趋势的延续。尽管存在背离，但考虑到当前宏观环境中性，建议保持现有头寸，不进行操作。
+- <li>德国DAX和恒生指数均因美元走强而减权，且MACD柱状图显示下行趋势，建议减仓这两个资产，以降低非美资产的风险敞口。
+- <li>黄金价格显示RSI超买，但MACD柱状图缩短，表明多头动能减弱。鉴于ATR波动比极高，建议减仓黄金，降低市场波动风险。
             </ul>
         </div>
         </section>
-
-        <!-- 页脚 -->
-        <footer class="text-center text-xs text-slate-600 py-6 border-t border-slate-800">
-            Sentinel Pro 6.0 &middot; Multi-Factor Enhanced &middot; 2026-02-23 09:13
-            <br>Private Dashboard &mdash; Do Not Share
-        </footer>
-
     </div>
+</main>
+
+<script>
+(function() {
+    const btn = document.getElementById('themeBtn');
+    const root = document.body;
+    const key = 'sentinel-theme';
+    const apply = (dark) => {
+        root.classList.toggle('dark-mode', dark);
+        btn.textContent = dark ? '🌙' : '☀️';
+    };
+    const cur = localStorage.getItem(key) === 'dark' || 
+                (!localStorage.getItem(key) && window.matchMedia('(prefers-color-scheme: dark)').matches);
+    apply(cur);
+    btn.onclick = () => {
+        const isDark = !root.classList.contains('dark-mode');
+        apply(isDark);
+        localStorage.setItem(key, isDark ? 'dark' : 'light');
+    };
+})();
+</script>
 </body>
 </html>
