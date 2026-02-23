@@ -12,6 +12,27 @@ from email.header import Header
 from email.utils import formataddr
 from datetime import datetime
 
+
+# ---------------------------------------------------------------------------
+#  工具函数: 安全地将 DataFrame 列或 MultiIndex 结果压平为 1D Series / 标量
+# ---------------------------------------------------------------------------
+
+def _to_series(s) -> pd.Series:
+    """将可能是 DataFrame (单列) 的对象压平为 1D pd.Series。"""
+    if isinstance(s, pd.DataFrame):
+        return s.iloc[:, 0]
+    return s
+
+
+def _safe_scalar(val) -> float:
+    """将 .iloc[-1] 可能返回的 Series / numpy 对象安全转为 Python float。"""
+    if isinstance(val, pd.Series):
+        return float(val.iloc[0])
+    if isinstance(val, pd.DataFrame):
+        return float(val.iloc[0, 0])
+    return float(val)
+
+
 # ============================================================================
 #  Sentinel Pro 6.0 — 多因子智能定投决策引擎
 #  架构：5 层流水线
@@ -54,8 +75,8 @@ def fetch_macro_context() -> dict:
     try:
         vix_data = yf.download("^VIX", period="5d", progress=False)
         if not vix_data.empty:
-            p = vix_data['Close']
-            ctx["vix"] = float(p.iloc[-1, 0] if isinstance(p, pd.DataFrame) else p.iloc[-1])
+            closes = _to_series(vix_data['Close'])
+            ctx["vix"] = _safe_scalar(closes.iloc[-1])
     except Exception:
         print("⚠️ VIX 数据获取失败，使用默认值")
 
@@ -63,19 +84,18 @@ def fetch_macro_context() -> dict:
     try:
         tnx_data = yf.download("^TNX", period="1y", progress=False)
         if not tnx_data.empty:
-            p = tnx_data['Close']
-            closes = p.iloc[:, 0] if isinstance(p, pd.DataFrame) else p
-            ctx["us10y"] = float(closes.iloc[-1])
+            closes = _to_series(tnx_data['Close'])
+            ctx["us10y"] = _safe_scalar(closes.iloc[-1])
 
             # 周涨幅 (与 5 个交易日前比较)
             if len(closes) >= 6:
-                prev = float(closes.iloc[-6])
+                prev = _safe_scalar(closes.iloc[-6])
                 if prev > 0:
-                    ctx["us10y_chg_pct"] = round((float(closes.iloc[-1]) - prev) / prev * 100, 2)
+                    ctx["us10y_chg_pct"] = round((_safe_scalar(closes.iloc[-1]) - prev) / prev * 100, 2)
 
             # 是否处于 1 年高位 (最近 250 个交易日)
             one_year = closes.tail(250)
-            ctx["us10y_at_1y_hi"] = float(closes.iloc[-1]) >= float(one_year.max()) * 0.98
+            ctx["us10y_at_1y_hi"] = _safe_scalar(closes.iloc[-1]) >= _safe_scalar(one_year.max()) * 0.98
     except Exception:
         print("⚠️ US10Y 数据获取失败，使用默认值")
 
@@ -83,19 +103,18 @@ def fetch_macro_context() -> dict:
     try:
         dxy_data = yf.download("DX-Y.NYB", period="3mo", progress=False)
         if not dxy_data.empty:
-            p = dxy_data['Close']
-            closes = p.iloc[:, 0] if isinstance(p, pd.DataFrame) else p
-            ctx["dxy"] = float(closes.iloc[-1])
+            closes = _to_series(dxy_data['Close'])
+            ctx["dxy"] = _safe_scalar(closes.iloc[-1])
 
             # 是否站上 20 日均线
             ma20 = closes.rolling(20).mean()
             if not ma20.empty and not pd.isna(ma20.iloc[-1]):
-                ctx["dxy_above_ma20"] = float(closes.iloc[-1]) > float(ma20.iloc[-1])
+                ctx["dxy_above_ma20"] = _safe_scalar(closes.iloc[-1]) > _safe_scalar(ma20.iloc[-1])
 
             # 上升通道：20 日均线 > 60 日均线
             ma60 = closes.rolling(60).mean()
             if not ma60.empty and not pd.isna(ma60.iloc[-1]) and not pd.isna(ma20.iloc[-1]):
-                ctx["dxy_trending_up"] = float(ma20.iloc[-1]) > float(ma60.iloc[-1])
+                ctx["dxy_trending_up"] = _safe_scalar(ma20.iloc[-1]) > _safe_scalar(ma60.iloc[-1])
     except Exception:
         print("⚠️ DXY 数据获取失败，使用默认值")
 
@@ -112,12 +131,13 @@ def calculate_rsi(prices: pd.Series, period: int = 14) -> float:
     RSI < 30 → 超卖；RSI > 70 → 超买。
     """
     try:
+        prices = _to_series(prices)
         delta = prices.diff()
         gain = delta.where(delta > 0, 0).rolling(window=period).mean()
         loss = (-delta.where(delta < 0, 0)).rolling(window=period).mean()
         rs = gain / loss
         rsi = 100 - (100 / (1 + rs))
-        return round(float(rsi.iloc[-1]), 1)
+        return round(_safe_scalar(rsi.iloc[-1]), 1)
     except Exception:
         return 50.0
 
@@ -135,11 +155,16 @@ def calculate_adx(high: pd.Series, low: pd.Series, close: pd.Series, period: int
       ADX > 25 且 -DI > +DI → 强下行趋势，严禁"接飞刀"
     """
     try:
+        # 确保输入是 1D Series
+        high = _to_series(high)
+        low = _to_series(low)
+        close = _to_series(close)
+
         # True Range
         tr1 = high - low
         tr2 = (high - close.shift(1)).abs()
         tr3 = (low - close.shift(1)).abs()
-        tr = pd.concat([tr1, tr2, tr3], axis=1).max(axis=1)
+        tr = pd.DataFrame({"a": tr1, "b": tr2, "c": tr3}).max(axis=1)
 
         # +DM / -DM (Directional Movement)
         up_move = high - high.shift(1)
@@ -157,9 +182,9 @@ def calculate_adx(high: pd.Series, low: pd.Series, close: pd.Series, period: int
         adx = dx.ewm(alpha=1/period, min_periods=period).mean()
 
         return {
-            "adx": round(float(adx.iloc[-1]), 1),
-            "plus_di": round(float(plus_di.iloc[-1]), 1),
-            "minus_di": round(float(minus_di.iloc[-1]), 1),
+            "adx": round(_safe_scalar(adx.iloc[-1]), 1),
+            "plus_di": round(_safe_scalar(plus_di.iloc[-1]), 1),
+            "minus_di": round(_safe_scalar(minus_di.iloc[-1]), 1),
         }
     except Exception:
         return {"adx": 20.0, "plus_di": 25.0, "minus_di": 25.0}
@@ -180,6 +205,7 @@ def calculate_macd(prices: pd.Series, fast: int = 12, slow: int = 26, signal: in
       价格 < MA 且 hist_shrinking=False → 动量仍在加速下跌，不宜加仓
     """
     try:
+        prices = _to_series(prices)
         ema_fast = prices.ewm(span=fast, adjust=False).mean()
         ema_slow = prices.ewm(span=slow, adjust=False).mean()
         macd_line = ema_fast - ema_slow
@@ -191,14 +217,16 @@ def calculate_macd(prices: pd.Series, fast: int = 12, slow: int = 26, signal: in
         hist_shrinking = False
         if len(hist_vals) >= 3:
             abs_vals = hist_vals.abs()
-            # 连续两期绝对值缩小 → 动量衰减
-            hist_shrinking = bool(abs_vals.iloc[-1] < abs_vals.iloc[-2] and
-                                  abs_vals.iloc[-2] < abs_vals.iloc[-3])
+            # 用 .item() 提取标量进行比较，避免 Series 比较歧义
+            v1 = abs_vals.iloc[-1].item() if hasattr(abs_vals.iloc[-1], 'item') else float(abs_vals.iloc[-1])
+            v2 = abs_vals.iloc[-2].item() if hasattr(abs_vals.iloc[-2], 'item') else float(abs_vals.iloc[-2])
+            v3 = abs_vals.iloc[-3].item() if hasattr(abs_vals.iloc[-3], 'item') else float(abs_vals.iloc[-3])
+            hist_shrinking = bool(v1 < v2 and v2 < v3)
 
         return {
-            "macd_line": round(float(macd_line.iloc[-1]), 4),
-            "signal_line": round(float(signal_line.iloc[-1]), 4),
-            "histogram": round(float(histogram.iloc[-1]), 4),
+            "macd_line": round(_safe_scalar(macd_line.iloc[-1]), 4),
+            "signal_line": round(_safe_scalar(signal_line.iloc[-1]), 4),
+            "histogram": round(_safe_scalar(histogram.iloc[-1]), 4),
             "hist_shrinking": hist_shrinking,
         }
     except Exception:
@@ -220,18 +248,23 @@ def calculate_atr(high: pd.Series, low: pd.Series, close: pd.Series, period: int
       动态止损用 ATR 而非固定百分比，自适应市场节奏
     """
     try:
+        # 确保输入是 1D Series
+        high = _to_series(high)
+        low = _to_series(low)
+        close = _to_series(close)
+
         tr1 = high - low
         tr2 = (high - close.shift(1)).abs()
         tr3 = (low - close.shift(1)).abs()
-        tr = pd.concat([tr1, tr2, tr3], axis=1).max(axis=1)
+        tr = pd.DataFrame({"a": tr1, "b": tr2, "c": tr3}).max(axis=1)
 
         atr_series = tr.rolling(window=period).mean()
-        current_atr = float(atr_series.iloc[-1])
+        current_atr = _safe_scalar(atr_series.iloc[-1])
         # 历史平均 ATR：取最近 250 个 ATR 值的均值
-        atr_avg = float(atr_series.tail(250).mean())
+        atr_avg = _safe_scalar(atr_series.tail(250).mean())
 
         atr_ratio = current_atr / atr_avg if atr_avg > 0 else 1.0
-        stop_loss = float(close.iloc[-1]) - 2 * current_atr
+        stop_loss = _safe_scalar(close.iloc[-1]) - 2 * current_atr
 
         return {
             "atr": round(current_atr, 4),
@@ -345,7 +378,7 @@ def compute_multiplier(curr_price: float, close_prices: pd.Series,
     ma_weights = [0.10, 0.15, 0.20, 0.25]
     ma_contribution = 0.0
     for w, mw in zip(ma_windows, ma_weights):
-        ma_val = float(close_prices.rolling(w).mean().iloc[-1])
+        ma_val = _safe_scalar(close_prices.rolling(w).mean().iloc[-1])
         if not pd.isna(ma_val) and curr_price < ma_val:
             deviation = (ma_val - curr_price) / ma_val  # 偏离比例
             contribution = mw * (1 + deviation)
@@ -410,7 +443,7 @@ def compute_multiplier(curr_price: float, close_prices: pd.Series,
     #    价格 < MA20 时，只有 MACD 柱状图缩短(动量衰减)才允许满额加仓
     # ---------------------------------------------------------------
     macd_contribution = 0.0
-    ma20_val = float(close_prices.rolling(20).mean().iloc[-1])
+    ma20_val = _safe_scalar(close_prices.rolling(20).mean().iloc[-1])
     if not pd.isna(ma20_val) and curr_price < ma20_val:
         if not hist_shrinking:
             # 动量仍在加速下跌，减半加仓力度
@@ -923,14 +956,10 @@ def main():
                 continue
 
             # 提取 OHLC 数据 (兼容 MultiIndex 和单层列)
-            for col in ['Close', 'High', 'Low']:
-                if isinstance(data[col], pd.DataFrame):
-                    data[col] = data[col].iloc[:, 0]
-
-            close = data['Close']
-            high = data['High']
-            low = data['Low']
-            curr_p = float(close.iloc[-1])
+            close = _to_series(data['Close'])
+            high = _to_series(data['High'])
+            low = _to_series(data['Low'])
+            curr_p = _safe_scalar(close.iloc[-1])
 
             # 4a. 计算全部技术指标
             rsi_val = calculate_rsi(close)
