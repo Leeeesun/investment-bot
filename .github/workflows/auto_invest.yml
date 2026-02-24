@@ -2,7 +2,7 @@ name: Global Invest Bot
 
 on:
   schedule:
-    - cron: '35 1 * * *' # 北京时间 09:45 运行（避开整点高峰）
+    - cron: '15 0 * * *' # 北京时间 08:15 运行（避开整点高峰）
   workflow_dispatch:      # 允许您在 GitHub 网页上手动点击触发
 
 jobs:
