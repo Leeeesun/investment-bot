@@ -171,7 +171,7 @@ body {
 <nav class="nav">
     <div class="brand">Sentinel Pro <span>v6.0</span></div>
     <div class="nav-meta">
-        <span>2026-03-11 02:49</span>
+        <span>2026-03-12 03:11</span>
         <button class="theme-toggle" id="themeBtn">☀️</button>
     </div>
 </nav>
@@ -182,18 +182,18 @@ body {
         <section class="bento-grid macro-grid">
             <div class="card">
                 <div class="macro-label">恐慌指数 (VIX)</div>
-                <div class="macro-value" style="color:var(--warning)">24.9</div>
+                <div class="macro-value" style="color:var(--warning)">24.2</div>
                 <div class="macro-sub" style="color:var(--warning)">警惕</div>
             </div>
             <div class="card">
                 <div class="macro-label">美国10年期国债收益率</div>
-                <div class="macro-value">4.14%</div>
-                <div class="macro-sub" style="color:var(--danger)">+2.0% 周变化</div>
+                <div class="macro-value">4.21%</div>
+                <div class="macro-sub" style="color:var(--danger)">+3.1% 周变化</div>
             </div>
             <div class="card">
                 <div class="macro-label">美元指数 (DXY)</div>
-                <div class="macro-value">98.9</div>
-                <div class="macro-sub text-muted">中性</div>
+                <div class="macro-value">99.5</div>
+                <div class="macro-sub text-muted">↑ 上升趋势</div>
             </div>
         </section>
 
@@ -206,7 +206,127 @@ body {
                     <span class="asset-name">标普500</span>
                     <span class="badge badge-muted">0.76x</span>
                 </div>
-                <div class="asset-price">$6781.48</div>
+                <div class="asset-price">$6775.8</div>
+            </div>
+            
+            <div class="metrics-grid">
+                <div class="metric">
+                    <span class="metric-label">RSI 指标</span>
+                    <span class="metric-value">43.1</span>
+                </div>
+                <div class="metric">
+                    <span class="metric-label">MACD 动量</span>
+                    <span class="metric-value val-down text-bearish">空头动能加速 (看空)</span>
+                </div>
+                <div class="metric">
+                    <span class="metric-label">策略胜率</span>
+                    <span class="metric-value">58.3%</span>
+                </div>
+                <div class="metric">
+                    <span class="metric-label">回测年化</span>
+                    <span class="metric-value val-up">+2.3%</span>
+                </div>
+            </div>
+            
+            <div class="sig-container"><span class="sig-tag text-neutral">价格低于 MA20 (1.1%)</span><span class="sig-tag text-neutral">价格低于 MA60 (1.6%)</span><span class="sig-tag text-neutral">价格低于 MA120 (0.6%)</span></div>
+        </div>
+        <div class="card asset-card">
+            <div class="asset-top">
+                <div class="asset-id">
+                    <span class="asset-name">纳斯达克</span>
+                    <span class="badge badge-green">1.69x</span>
+                </div>
+                <div class="asset-price">$22716.13</div>
+            </div>
+            
+            <div class="metrics-grid">
+                <div class="metric">
+                    <span class="metric-label">RSI 指标</span>
+                    <span class="metric-value">50.6</span>
+                </div>
+                <div class="metric">
+                    <span class="metric-label">MACD 动量</span>
+                    <span class="metric-value val-up text-bullish">多头动能加速 (看多)</span>
+                </div>
+                <div class="metric">
+                    <span class="metric-label">策略胜率</span>
+                    <span class="metric-value">47.2%</span>
+                </div>
+                <div class="metric">
+                    <span class="metric-label">回测年化</span>
+                    <span class="metric-value val-up">+1.8%</span>
+                </div>
+            </div>
+            
+            <div class="sig-container"><span class="sig-tag text-neutral">价格低于 MA20 (0.1%)</span><span class="sig-tag text-neutral">价格低于 MA60 (1.9%)</span><span class="sig-tag text-neutral">价格低于 MA120 (1.6%)</span></div>
+        </div>
+        <div class="card asset-card">
+            <div class="asset-top">
+                <div class="asset-id">
+                    <span class="asset-name">日经225</span>
+                    <span class="badge badge-red">0.35x</span>
+                </div>
+                <div class="asset-price">$54177.15</div>
+            </div>
+            
+            <div class="metrics-grid">
+                <div class="metric">
+                    <span class="metric-label">RSI 指标</span>
+                    <span class="metric-value">38.8</span>
+                </div>
+                <div class="metric">
+                    <span class="metric-label">MACD 动量</span>
+                    <span class="metric-value val-up text-bullish">空头动能衰竭 (看多)</span>
+                </div>
+                <div class="metric">
+                    <span class="metric-label">策略胜率</span>
+                    <span class="metric-value">83.3%</span>
+                </div>
+                <div class="metric">
+                    <span class="metric-label">回测年化</span>
+                    <span class="metric-value val-up">+25.7%</span>
+                </div>
+            </div>
+            
+            <div class="sig-container"><span class="sig-tag text-neutral">价格低于 MA20 (4.0%)</span><span class="sig-tag text-neutral">🟢 MACD 柱状图缩短，动量衰减确认</span><span class="sig-tag text-neutral">📊 ATR 波动比=2.19x (极端)，头寸缩减系数=0.46</span></div>
+        </div>
+        <div class="card asset-card">
+            <div class="asset-top">
+                <div class="asset-id">
+                    <span class="asset-name">德国DAX</span>
+                    <span class="badge badge-muted">0.98x</span>
+                </div>
+                <div class="asset-price">$23640.03</div>
+            </div>
+            
+            <div class="metrics-grid">
+                <div class="metric">
+                    <span class="metric-label">RSI 指标</span>
+                    <span class="metric-value">34.0</span>
+                </div>
+                <div class="metric">
+                    <span class="metric-label">MACD 动量</span>
+                    <span class="metric-value val-up text-bullish">空头动能衰竭 (看多)</span>
+                </div>
+                <div class="metric">
+                    <span class="metric-label">策略胜率</span>
+                    <span class="metric-value">5.6%</span>
+                </div>
+                <div class="metric">
+                    <span class="metric-label">回测年化</span>
+                    <span class="metric-value val-down">-3.1%</span>
+                </div>
+            </div>
+            
+            <div class="sig-container"><span class="sig-tag text-neutral">价格低于 MA20 (3.9%)</span><span class="sig-tag text-neutral">价格低于 MA60 (4.2%)</span><span class="sig-tag text-neutral">价格低于 MA120 (2.8%)</span></div>
+        </div>
+        <div class="card asset-card">
+            <div class="asset-top">
+                <div class="asset-id">
+                    <span class="asset-name">恒生指数</span>
+                    <span class="badge badge-blue">1.05x</span>
+                </div>
+                <div class="asset-price">$25599.5</div>
             </div>
             
             <div class="metrics-grid">
@@ -216,97 +336,7 @@ body {
                 </div>
                 <div class="metric">
                     <span class="metric-label">MACD 动量</span>
-                    <span class="metric-value val-down text-bearish">空头动能加速 (看空)</span>
-                </div>
-                <div class="metric">
-                    <span class="metric-label">策略胜率</span>
-                    <span class="metric-value">55.6%</span>
-                </div>
-                <div class="metric">
-                    <span class="metric-label">回测年化</span>
-                    <span class="metric-value val-up">+2.5%</span>
-                </div>
-            </div>
-            
-            <div class="sig-container"><span class="sig-tag text-neutral">价格低于 MA20 (1.2%)</span><span class="sig-tag text-neutral">价格低于 MA60 (1.5%)</span><span class="sig-tag text-neutral">价格低于 MA120 (0.5%)</span></div>
-        </div>
-        <div class="card asset-card">
-            <div class="asset-top">
-                <div class="asset-id">
-                    <span class="asset-name">纳斯达克</span>
-                    <span class="badge badge-green">1.69x</span>
-                </div>
-                <div class="asset-price">$22697.1</div>
-            </div>
-            
-            <div class="metrics-grid">
-                <div class="metric">
-                    <span class="metric-label">RSI 指标</span>
-                    <span class="metric-value">49.0</span>
-                </div>
-                <div class="metric">
-                    <span class="metric-label">MACD 动量</span>
-                    <span class="metric-value val-up text-bullish">多头动能加速 (看多)</span>
-                </div>
-                <div class="metric">
-                    <span class="metric-label">策略胜率</span>
-                    <span class="metric-value">44.4%</span>
-                </div>
-                <div class="metric">
-                    <span class="metric-label">回测年化</span>
-                    <span class="metric-value val-up">+1.6%</span>
-                </div>
-            </div>
-            
-            <div class="sig-container"><span class="sig-tag text-neutral">价格低于 MA20 (0.2%)</span><span class="sig-tag text-neutral">价格低于 MA60 (2.0%)</span><span class="sig-tag text-neutral">价格低于 MA120 (1.7%)</span></div>
-        </div>
-        <div class="card asset-card">
-            <div class="asset-top">
-                <div class="asset-id">
-                    <span class="asset-name">日经225</span>
-                    <span class="badge badge-red">0.4x</span>
-                </div>
-                <div class="asset-price">$55387.75</div>
-            </div>
-            
-            <div class="metrics-grid">
-                <div class="metric">
-                    <span class="metric-label">RSI 指标</span>
-                    <span class="metric-value">44.0</span>
-                </div>
-                <div class="metric">
-                    <span class="metric-label">MACD 动量</span>
                     <span class="metric-value val-up text-bullish">空头动能衰竭 (看多)</span>
-                </div>
-                <div class="metric">
-                    <span class="metric-label">策略胜率</span>
-                    <span class="metric-value">91.7%</span>
-                </div>
-                <div class="metric">
-                    <span class="metric-label">回测年化</span>
-                    <span class="metric-value val-up">+30.3%</span>
-                </div>
-            </div>
-            
-            <div class="sig-container"><span class="sig-tag text-neutral">价格低于 MA20 (2.2%)</span><span class="sig-tag text-neutral">🟢 MACD 柱状图缩短，动量衰减确认</span><span class="sig-tag text-neutral">📊 ATR 波动比=2.15x (极端)，头寸缩减系数=0.46</span></div>
-        </div>
-        <div class="card asset-card">
-            <div class="asset-top">
-                <div class="asset-id">
-                    <span class="asset-name">德国DAX</span>
-                    <span class="badge badge-blue">1.06x</span>
-                </div>
-                <div class="asset-price">$23968.63</div>
-            </div>
-            
-            <div class="metrics-grid">
-                <div class="metric">
-                    <span class="metric-label">RSI 指标</span>
-                    <span class="metric-value">34.8</span>
-                </div>
-                <div class="metric">
-                    <span class="metric-label">MACD 动量</span>
-                    <span class="metric-value val-down text-bearish">空头动能加速 (看空)</span>
                 </div>
                 <div class="metric">
                     <span class="metric-label">策略胜率</span>
@@ -314,55 +344,25 @@ body {
                 </div>
                 <div class="metric">
                     <span class="metric-label">回测年化</span>
-                    <span class="metric-value val-down">-0.9%</span>
+                    <span class="metric-value val-down">-1.1%</span>
                 </div>
             </div>
             
-            <div class="sig-container"><span class="sig-tag text-neutral">价格低于 MA20 (2.8%)</span><span class="sig-tag text-neutral">价格低于 MA60 (2.9%)</span><span class="sig-tag text-neutral">价格低于 MA120 (1.4%)</span></div>
-        </div>
-        <div class="card asset-card">
-            <div class="asset-top">
-                <div class="asset-id">
-                    <span class="asset-name">恒生指数</span>
-                    <span class="badge badge-blue">1.18x</span>
-                </div>
-                <div class="asset-price">$26032.39</div>
-            </div>
-            
-            <div class="metrics-grid">
-                <div class="metric">
-                    <span class="metric-label">RSI 指标</span>
-                    <span class="metric-value">43.4</span>
-                </div>
-                <div class="metric">
-                    <span class="metric-label">MACD 动量</span>
-                    <span class="metric-value val-up text-bullish">空头动能衰竭 (看多)</span>
-                </div>
-                <div class="metric">
-                    <span class="metric-label">策略胜率</span>
-                    <span class="metric-value">61.1%</span>
-                </div>
-                <div class="metric">
-                    <span class="metric-label">回测年化</span>
-                    <span class="metric-value val-up">+2.0%</span>
-                </div>
-            </div>
-            
-            <div class="sig-container"><span class="sig-tag text-neutral">价格低于 MA20 (1.2%)</span><span class="sig-tag text-neutral">价格低于 MA60 (1.3%)</span><span class="sig-tag text-neutral">价格低于 MA120 (1.0%)</span></div>
+            <div class="sig-container"><span class="sig-tag text-neutral">价格低于 MA20 (2.6%)</span><span class="sig-tag text-neutral">价格低于 MA60 (3.0%)</span><span class="sig-tag text-neutral">价格低于 MA120 (2.6%)</span></div>
         </div>
         <div class="card asset-card">
             <div class="asset-top">
                 <div class="asset-id">
                     <span class="asset-name">黄金</span>
-                    <span class="badge badge-muted">0.53x</span>
+                    <span class="badge badge-muted">0.51x</span>
                 </div>
-                <div class="asset-price">$5213.7</div>
+                <div class="asset-price">$5156.4</div>
             </div>
             
             <div class="metrics-grid">
                 <div class="metric">
                     <span class="metric-label">RSI 指标</span>
-                    <span class="metric-value">61.4</span>
+                    <span class="metric-value">58.4</span>
                 </div>
                 <div class="metric">
                     <span class="metric-label">MACD 动量</span>
@@ -370,15 +370,15 @@ body {
                 </div>
                 <div class="metric">
                     <span class="metric-label">策略胜率</span>
-                    <span class="metric-value">100.0%</span>
+                    <span class="metric-value">94.4%</span>
                 </div>
                 <div class="metric">
                     <span class="metric-label">回测年化</span>
-                    <span class="metric-value val-up">+53.8%</span>
+                    <span class="metric-value val-up">+51.3%</span>
                 </div>
             </div>
             
-            <div class="sig-container"><span class="sig-tag text-neutral">📊 ATR 波动比=1.54x (极端)，头寸缩减系数=0.65</span></div>
+            <div class="sig-container"><span class="sig-tag text-neutral">📊 ATR 波动比=1.59x (极端)，头寸缩减系数=0.63</span></div>
         </div>
         </section>
 
@@ -393,11 +393,11 @@ body {
                 AI 首席风控官 (CRO)
             </div>
             <ul class="ai-list">
-                - <li>德国DAX的RSI指标显示超卖状态，但MACD动能继续向下，表明可能存在多头陷阱风险。Bull Trap 风险: 高。建议减仓德国DAX，以规避潜在的多头陷阱风险。
-- <li>标普500和纳斯达克的MACD柱状图均显示扩大向下，表明市场可能处于下跌趋势中。建议标普500和纳斯达克的倍率从当前水平下调，以降低风险敞口。建议将标普500的倍率从0.76x下调至0.5x，纳斯达克的倍率从1.69x下调至1.0x。
-- <li>日经225的RSI和MACD柱状图均显示多头信号，但ADX指标显示趋势强度不高，建议谨慎加仓。建议在日经225的倍率保持在0.4x不变的情况下，谨慎加仓。
-- <li>恒生指数的MACD柱状图显示动量衰减，但RSI指标显示超卖，存在一定看多信号。建议在恒生指数的倍率保持在1.18x不变的情况下，观望其后续走势。
-- <li>黄金的ATR波动比显示极端波动，建议减仓黄金以规避风险。建议将黄金的倍率从0.53x下调至0.3x。
+                - <li>对于标普500，当前RSI处于超卖状态，但MACD柱状图扩大下行，表明可能存在多头陷阱风险。考虑到VIX上升和10Y美债收益率周变化上升，市场波动性增加，建议减仓标普500，倍率从0.76x下调至0.5x，以降低多头陷阱风险：Bull Trap 风险: 中，建议行动：减仓。
+- <li>纳斯达克指数同样显示RSI超卖和MACD柱状图扩大下行，与标普500类似，存在多头陷阱风险。鉴于其倍率较高（1.69x），建议将倍率下调至1.0x，以减少风险敞口：Bull Trap 风险: 中，建议行动：减仓。
+- <li>日经225指数显示MACD柱状图缩短上行，但RSI处于较低水平，且ATR波动比极高，表明市场波动性异常。建议将倍率从0.35x上调至0.5x，以应对潜在的市场波动风险：Bull Trap 风险: 低，建议行动：加仓。
+- <li>德国DAX指数显示RSI超卖和MACD柱状图缩短上行，但因子权重显示其宏观因子为负，表明宏观环境不支持当前仓位。建议减仓DAX，倍率从0.98x下调至0.8x，以降低风险：Bull Trap 风险: 低，建议行动：减仓。
+- <li>恒生指数显示MACD柱状图缩短上行，但RSI处于较低水平，且ATR波动比偏高，表明市场波动性增加。建议将倍率从1.05x下调至0.9x，以应对潜在的市场波动风险：Bull Trap 风险: 低，建议行动：减仓。
             </ul>
         </div>
         </section>
